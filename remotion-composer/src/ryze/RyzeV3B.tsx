@@ -179,32 +179,38 @@ export const V3BSeriously: React.FC = () => {
 };
 
 // ---------------------------------------------------------------------------
-// 0:04-0:06 — REVISED per client feedback: this used to be a single 1s
-// freeze; her source actually has a real bullet-time slow-mo passage right
-// here (source ~4.0-8.0s — extreme close-ups of the phone/glasses/coffee
-// genuinely drifting in the air, verified frame-by-frame), and a static
-// freeze threw that away. So this composition is now two real beats:
+// 0:04-... — REVISED twice per client feedback. Her source ~3.5-8.5s is not
+// normal-speed footage that needs slowing down — it's already shot as a
+// genuine slow-motion bullet-time passage (frame-to-frame motion is already
+// tiny), cut internally into mini-scenes:
+//   ~3.5-5.25s  wide shot, phone/glasses/cup hanging in the air
+//   ~5.5-6.25s  macro close-up, coffee slowly dripping off the lid
+//   ~6.5-7.5s   macro close-up of the phone screen ("BOSS" incoming call)
+//   ~7.5-8.5s   wide shot again, things start actually falling
+// Applying an extra playbackRate slowdown on top (an earlier pass here did
+// 0.35x) looked broken — over-slowed. This plays the first two mini-scenes
+// (wide hang + coffee-drip macro — a nice lead-in to the wipe below) at
+// their own native 1x speed, real decoded frames, back to back. The client
+// also said not to compress the runtime to pay for this — the video is
+// allowed to run longer, so both mini-scenes are used at their full length,
+// and the 0:05-0:14 screen blocks are left at their original durations.
 //
-//   1. SLOWMO_FRAMES (1.0s of screen time): actual playback of her.mp4 from
-//      source 4.0s at `playbackRate={SLOWMO_RATE}` (0.35 — inside the
-//      requested 0.3-0.4 range) — a real decoded, genuinely slow clip, not
-//      a frozen frame stretched out.
-//   2. The existing (unchanged) coffee-becomes-interface beat: a short
-//      RGB-split "impact" shock, then the spill's footprint on a freeze
-//      frame (grabbed later, ~8.8s, where the coffee has actually hit the
-//      ground) grows into a wipe mask that pours the Account Audit screen
-//      in underneath. Per the coordinator, this part already works — only
-//      its start offset moved, nothing about how it works changed.
+// After that: the existing (unchanged) coffee-becomes-interface beat — a
+// short RGB-split "impact" shock, then the spill's footprint on a freeze
+// frame (grabbed at ~8.8s, where the coffee has actually hit the ground)
+// grows into a wipe mask that pours the Account Audit screen in underneath.
 //
-// All of it is per-frame `interpolate`/`playbackRate` in Remotion; ffmpeg
-// never touches this transition, only the final concat afterward.
+// All per-frame `interpolate`, done in Remotion; ffmpeg never touches this
+// transition, only the final concat afterward.
 // ---------------------------------------------------------------------------
 
-const SLOWMO_FRAMES = 30; // 1.0s of screen time
-const SLOWMO_SRC_START = 4.0; // her.mp4 source seconds — start of the bullet-time passage
-const SLOWMO_RATE = 0.35; // real decoded playback, 0.35x — inside the requested 0.3-0.4 range
+const WIDE_HANG_SRC_START = 3.5; // her.mp4 source seconds
+const WIDE_HANG_FRAMES = 53; // ~1.77s (to ~5.27s)
+const COFFEE_DRIP_SRC_START = 5.5;
+const COFFEE_DRIP_FRAMES = 23; // ~0.77s (to ~6.27s)
+const SLOWMO_FRAMES = WIDE_HANG_FRAMES + COFFEE_DRIP_FRAMES; // ~2.53s total, both at native 1x
 
-export const V3B_GLITCH_DURATION = SLOWMO_FRAMES + sec(1.0); // 2.0s total
+export const V3B_GLITCH_DURATION = SLOWMO_FRAMES + sec(1.0); // ~3.53s total
 const SHOCK_FRAMES = 6; // ~0.2s RGB-split impact (measured from the END of the slow-mo phase)
 const WIPE_START = 6;
 const WIPE_END = 27; // ~0.7s pour/reveal
@@ -228,22 +234,39 @@ const GlitchChannel: React.FC<{ filterId: string; shift: number }> = ({ filterId
   </div>
 );
 
+// A sub-clip that plays at real 1x speed starting partway through this
+// composition's own timeline. `startFrom` is a CONSTANT (Remotion adds the
+// composition's current frame automatically — see the ZoomVideo note below)
+// so to have it read `srcStartSeconds` at the moment THIS sub-clip's local
+// time is 0 (i.e. composition frame == `mountedAtFrame`), the constant has
+// to be offset backward by `mountedAtFrame`.
+const SlowmoSubclip: React.FC<{ srcStartSeconds: number; mountedAtFrame: number; fps: number }> = ({
+  srcStartSeconds,
+  mountedAtFrame,
+  fps,
+}) => (
+  <OffthreadVideo
+    src={staticFile("media/her.mp4")}
+    startFrom={Math.round(srcStartSeconds * fps) - mountedAtFrame}
+    muted
+    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+  />
+);
+
 export const V3BGlitch: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  // Phase 1: real slow-motion playback — genuine decoded frames of her
-  // source at a fraction of real speed, not a still.
+  // Phase 1: the two mini-scenes, real decoded frames, native 1x speed.
   if (frame < SLOWMO_FRAMES) {
+    const inWideHang = frame < WIDE_HANG_FRAMES;
     return (
       <AbsoluteFill style={{ backgroundColor: "#000" }}>
-        <OffthreadVideo
-          src={staticFile("media/her.mp4")}
-          startFrom={Math.round(SLOWMO_SRC_START * fps)}
-          playbackRate={SLOWMO_RATE}
-          muted
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-        />
+        {inWideHang ? (
+          <SlowmoSubclip srcStartSeconds={WIDE_HANG_SRC_START} mountedAtFrame={0} fps={fps} />
+        ) : (
+          <SlowmoSubclip srcStartSeconds={COFFEE_DRIP_SRC_START} mountedAtFrame={WIDE_HANG_FRAMES} fps={fps} />
+        )}
         <PIPInset appearAtFrame={-30} sourceStartSeconds={4.0} />
         <CornerLogoV3B appearAtFrame={-30} />
       </AbsoluteFill>

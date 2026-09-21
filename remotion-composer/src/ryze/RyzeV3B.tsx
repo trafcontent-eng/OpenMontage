@@ -677,12 +677,15 @@ const WastedFoundCard: React.FC<{ atFrame: number }> = ({ atFrame }) => {
 // Her source's own burned-in "Seriously?" caption is still on screen this
 // late in the clip (verified frame-by-frame up to ~9.9s, right to the clip's
 // 10.005s end) — it sits right over her dark skirt. Rather than re-cut to a
-// "clean" later moment (there isn't one; the clip runs out), a soft dark
-// patch tuned to the skirt's own near-black tone quietly covers just that
-// footprint. Feathered (radial, not a hard rectangle) so it reads as part of
-// the fabric's shading, not a sticker — fixes the "Seriously?" appearing
-// twice in the same cut.
-const REPEATED_CAPTION_BOX = { cx: 555, cy: 950, rx: 215, ry: 108 };
+// "clean" later moment (there isn't one; the clip runs out), a dark patch
+// tuned to the skirt's own near-black tone quietly covers just that
+// footprint. First pass used a radial-gradient fill that was translucent
+// enough at its own center to still let the bold white text ghost through —
+// this one is a flat, fully OPAQUE core (solid color, not a gradient over
+// the text) with the feathering pushed entirely to a soft outer box-shadow,
+// so nothing inside the patch is see-through and only the outer few px
+// blend into the fabric.
+const REPEATED_CAPTION_BOX = { cx: 555, cy: 950, rx: 165, ry: 62 };
 
 const CaptionMask: React.FC = () => (
   <AbsoluteFill style={{ pointerEvents: "none" }}>
@@ -693,7 +696,9 @@ const CaptionMask: React.FC = () => (
         top: REPEATED_CAPTION_BOX.cy - REPEATED_CAPTION_BOX.ry,
         width: REPEATED_CAPTION_BOX.rx * 2,
         height: REPEATED_CAPTION_BOX.ry * 2,
-        background: `radial-gradient(ellipse at center, rgba(10,10,12,0.97) 45%, rgba(10,10,12,0.85) 65%, rgba(10,10,12,0) 100%)`,
+        borderRadius: 34,
+        backgroundColor: "rgba(9, 9, 11, 1)",
+        boxShadow: "0 0 26px 12px rgba(9, 9, 11, 0.9)",
       }}
     />
   </AbsoluteFill>

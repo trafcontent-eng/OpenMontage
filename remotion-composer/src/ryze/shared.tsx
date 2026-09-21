@@ -11,7 +11,6 @@ import {
   Easing,
 } from "remotion";
 import { continueRender, delayRender, staticFile } from "remotion";
-import { resolveAsset } from "../lib/resolveAsset";
 
 // ---------------------------------------------------------------------------
 // Fonts — self-hosted locally (public/fonts) instead of @remotion/google-fonts.
@@ -74,15 +73,17 @@ ensureRyzeFonts();
 // Source assets
 // ---------------------------------------------------------------------------
 
-const UPLOAD_ROOT = "/root/.claude/uploads/9510ebf9-62ae-55ef-818f-ff2f44d403b8";
-const REC_ROOT =
-  "/tmp/claude-0/-home-user-OpenMontage/9510ebf9-62ae-55ef-818f-ff2f44d403b8/scratchpad/rec";
-
-export const HER_CLIP = `${UPLOAD_ROOT}/89db74f8-Ryze.mp4`;
-export const MOBILE_SCREENCAST = `${REC_ROOT}/ryze_mobile_fixed.mp4`;
-export const SHOPIFY_SCREENCAST = `${REC_ROOT}/shopify_rec/shopify_scroll.mp4`;
-export const LOGO_MARK = `${REC_ROOT}/ryze_logo.png`;
-export const LOGO_LOCKUP_WHITE = `${REC_ROOT}/build/lockup_white.png`;
+// NOTE: these upload/scratchpad paths live outside this Remotion project, and
+// OffthreadVideo's frame-extraction proxy in this installed Remotion version
+// can only fetch http(s) URLs (not file://) — see the /proxy download path in
+// @remotion/renderer's assets/read-file.js. So instead of resolving them to
+// file:// URLs, they are symlinked into public/media/ (see that folder) and
+// referenced here as ordinary staticFile()-servable paths.
+export const HER_CLIP = "media/her.mp4";
+export const MOBILE_SCREENCAST = "media/ryze_mobile_fixed.mp4";
+export const SHOPIFY_SCREENCAST = "media/shopify_scroll.mp4";
+export const LOGO_MARK = "media/ryze_logo.png";
+export const LOGO_LOCKUP_WHITE = "media/lockup_white.png";
 
 // ---------------------------------------------------------------------------
 // Brand
@@ -144,7 +145,7 @@ export const CornerLogo: React.FC<{
         }}
       >
         <Img
-          src={resolveAsset(LOGO_LOCKUP_WHITE)}
+          src={staticFile(LOGO_LOCKUP_WHITE)}
           style={{ height: 34, display: "block" }}
         />
       </div>
@@ -283,7 +284,7 @@ export const BrollFrame: React.FC<{
   return (
     <AbsoluteFill style={{ overflow: "hidden", backgroundColor: "#0b2a2e" }}>
       <OffthreadVideo
-        src={resolveAsset(shot.src)}
+        src={staticFile(shot.src)}
         startFrom={Math.round(shot.sourceInSeconds * fps)}
         muted
         style={{
@@ -358,7 +359,7 @@ export const HerClip: React.FC<{ startFromSeconds: number }> = ({ startFromSecon
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
       <OffthreadVideo
-        src={resolveAsset(HER_CLIP)}
+        src={staticFile(HER_CLIP)}
         startFrom={Math.round(startFromSeconds * fps)}
         style={{ width: "100%", height: "100%", objectFit: "cover" }}
       />
@@ -417,7 +418,7 @@ export const PipOverlay: React.FC<{
         }}
       >
         <OffthreadVideo
-          src={resolveAsset(SHOPIFY_SCREENCAST)}
+          src={staticFile(SHOPIFY_SCREENCAST)}
           startFrom={Math.round(pipVideoTime * fps)}
           muted
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
@@ -510,7 +511,7 @@ export const CTACard: React.FC<{ startFrame?: number }> = ({ startFrame = 0 }) =
     >
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 34, padding: "0 80px" }}>
         <Img
-          src={resolveAsset(LOGO_LOCKUP_WHITE)}
+          src={staticFile(LOGO_LOCKUP_WHITE)}
           style={{
             height: 64,
             opacity: logoSpring,

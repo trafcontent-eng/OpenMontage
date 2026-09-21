@@ -10,18 +10,65 @@ import {
   useVideoConfig,
   Easing,
 } from "remotion";
-import { loadFont as loadPoppins } from "@remotion/google-fonts/Poppins";
-import { loadFont as loadInter } from "@remotion/google-fonts/Inter";
+import { continueRender, delayRender, staticFile } from "remotion";
 import { resolveAsset } from "../lib/resolveAsset";
 
-export const { fontFamily: HEADLINE_FONT } = loadPoppins("normal", {
-  weights: ["600", "700", "800", "900"],
-  subsets: ["latin"],
-});
-export const { fontFamily: BODY_FONT } = loadInter("normal", {
-  weights: ["400", "500", "600", "700"],
-  subsets: ["latin"],
-});
+// ---------------------------------------------------------------------------
+// Fonts — self-hosted locally (public/fonts) instead of @remotion/google-fonts.
+// The render sandbox's headless Chrome cannot validate fonts.gstatic.com's
+// TLS chain through the local egress proxy (ERR_CERT_AUTHORITY_INVALID),
+// so fonts fetched at render time fail. Self-hosted @font-face avoids any
+// network fetch during render while keeping the same brand typefaces, and
+// delayRender/continueRender makes sure the frame isn't captured before the
+// local woff2 files are actually decoded (avoids a fallback-font flash).
+// ---------------------------------------------------------------------------
+
+export const HEADLINE_FONT = "Poppins";
+export const BODY_FONT = "Inter";
+
+let fontsInjected = false;
+export const ensureRyzeFonts = () => {
+  if (fontsInjected || typeof document === "undefined") return;
+  fontsInjected = true;
+
+  const weights: Array<[string, string]> = [
+    [HEADLINE_FONT, "600"],
+    [HEADLINE_FONT, "700"],
+    [HEADLINE_FONT, "800"],
+    [HEADLINE_FONT, "900"],
+    [BODY_FONT, "400"],
+    [BODY_FONT, "500"],
+    [BODY_FONT, "600"],
+    [BODY_FONT, "700"],
+  ];
+
+  const style = document.createElement("style");
+  style.textContent = weights
+    .map(
+      ([fam, weight]) => `
+    @font-face {
+      font-family: "${fam}";
+      font-style: normal;
+      font-weight: ${weight};
+      src: url("${staticFile(`fonts/${fam}-${weight}.woff2`)}") format("woff2");
+      font-display: block;
+    }`
+    )
+    .join("\n");
+  document.head.appendChild(style);
+
+  const handle = delayRender("Loading self-hosted Ryze brand fonts");
+  Promise.all(
+    weights.map(([fam, weight]) =>
+      document.fonts.load(`${weight} 40px "${fam}"`)
+    )
+  )
+    .then(() => document.fonts.ready)
+    .then(() => continueRender(handle))
+    .catch(() => continueRender(handle));
+};
+
+ensureRyzeFonts();
 
 // ---------------------------------------------------------------------------
 // Source assets
@@ -315,6 +362,67 @@ export const HerClip: React.FC<{ startFromSeconds: number }> = ({ startFromSecon
         startFrom={Math.round(startFromSeconds * fps)}
         style={{ width: "100%", height: "100%", objectFit: "cover" }}
       />
+    </AbsoluteFill>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Circular picture-in-picture overlay — a small round window (teal ring)
+// showing a live Ryze screencast, laid over her clip while it keeps playing
+// (not a cutaway). Keyed to her clip's OWN source-time (`herSourceTimeAtFrame0`
+// + local frame), so the same window reads as one continuous, uninterrupted
+// window across the hard cut into the "wasted spend" cutaway and back.
+// ---------------------------------------------------------------------------
+
+export const PIP_HER_START = 6.0; // her clip's own timeline, seconds
+export const PIP_HER_END = 9.5;
+const PIP_SOURCE_BASE = 2.0; // where in the site-scroll screencast the PIP starts
+
+export const PipOverlay: React.FC<{
+  herSourceTimeAtFrame0: number;
+  withEntrance?: boolean;
+}> = ({ herSourceTimeAtFrame0, withEntrance = false }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const herTime = herSourceTimeAtFrame0 + frame / fps;
+  if (herTime < PIP_HER_START - 0.001 || herTime > PIP_HER_END) return null;
+
+  const sinceStart = herTime - PIP_HER_START;
+  const untilEnd = PIP_HER_END - herTime;
+
+  const entrance = withEntrance
+    ? spring({ frame: Math.round(sinceStart * fps), fps, config: SPRING_SNAP })
+    : 1;
+  const edgeFade = Math.min(1, sinceStart / 0.18, untilEnd / 0.18);
+  const opacity = Math.max(0, Math.min(entrance, edgeFade));
+  const scale = interpolate(entrance, [0, 1], [0.6, 1]);
+  const pipVideoTime = PIP_SOURCE_BASE + sinceStart;
+
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
+      <div
+        style={{
+          position: "absolute",
+          top: 130,
+          right: 46,
+          width: 300,
+          height: 300,
+          borderRadius: "50%",
+          overflow: "hidden",
+          opacity,
+          transform: `scale(${scale})`,
+          border: `5px solid ${COLORS.accent}`,
+          boxShadow: "0 10px 30px rgba(0,0,0,0.5), 0 0 0 2px rgba(11,42,46,0.4)",
+          backgroundColor: "#062024",
+        }}
+      >
+        <OffthreadVideo
+          src={resolveAsset(SHOPIFY_SCREENCAST)}
+          startFrom={Math.round(pipVideoTime * fps)}
+          muted
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      </div>
     </AbsoluteFill>
   );
 };

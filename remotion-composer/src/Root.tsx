@@ -1,3 +1,4 @@
+import "./lib/fontFaceShim";
 import { Composition, CalculateMetadataFunction } from "remotion";
 import { Explainer, ExplainerProps } from "./Explainer";
 import {
@@ -17,6 +18,7 @@ import { CaptionOverlay, WordCaption } from "./components/CaptionOverlay";
 import { CollageBurst, CollageBurstProps } from "./CollageBurst";
 import { LyricOverlay, LyricOverlayProps } from "./LyricOverlay";
 import { VariantA, VARIANT_A_DURATION } from "./ryze/VariantA";
+import { RyzeSeg1, RyzeSeg3, SEG1_DURATION, SEG3_DURATION } from "./ryze/RyzeFinal";
 import { VariantB, VARIANT_B_DURATION } from "./ryze/VariantB";
 import { VariantC, VARIANT_C_DURATION } from "./ryze/VariantC";
 import { Video2Her, VIDEO2_HER_DURATION } from "./ryze/Video2Her";
@@ -338,6 +340,22 @@ export const Root: React.FC = () => {
         id="RyzeVariantA"
         component={VariantA}
         durationInFrames={VARIANT_A_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+      />
+      <Composition
+        id="RyzeSeg1"
+        component={RyzeSeg1}
+        durationInFrames={SEG1_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+      />
+      <Composition
+        id="RyzeSeg3"
+        component={RyzeSeg3}
+        durationInFrames={SEG3_DURATION}
         fps={30}
         width={1080}
         height={1920}

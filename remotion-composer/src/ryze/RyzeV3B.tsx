@@ -47,8 +47,10 @@ import {
 //   V3BReaction    ONE continuous, uncut piece of source (~8.3-10.0s): the
 //                  objects land, she looks down, says "Seriously?" (burned
 //                  into the source) and throws up her hands — in that real
-//                  order. "WASTED SPEND: FOUND" bounces in near the end.
-//                  Used exactly once, so the caption never duplicates.
+//                  order, used exactly once (so the caption never
+//                  duplicates). "At least ONE thing runs itself." bounces in
+//                  near the end — the real "Wasted spend detection" phrase
+//                  is reserved for its one appearance later, on-screen.
 //   V3BTransition  RGB-split shock + coffee-wipe into the Account Audit
 //                  screen, picking up from the exact last frame V3BReaction
 //                  ended on
@@ -106,6 +108,16 @@ const AMBER = "#F5A623"; // brand amber accent — not in shared.tsx's COLORS to
 // frame). The full-bleed Audit segment is untouched — that split-column
 // content is fine full-screen where it's clearly the account/audit page;
 // it just isn't right for a tiny decorative "meanwhile" inset.
+// FIX (round 2): this file's own frames carry a real, physically-recorded
+// black bezel — confirmed with `ffmpeg cropdetect`, which reported the exact
+// same crop=612:1252:54:22 on every single sampled frame across the whole
+// clip. That's a baked-in border from the screencast/phone-mockup capture
+// itself, not something a CSS layer can hide — the teal ring drawn in
+// PIPInset below was always going to look like it sat on top of a second,
+// darker border because that darker border is real pixels in the video. The
+// source file referenced here is now pre-cropped with that exact ffmpeg
+// crop filter BEFORE anything else touches it, so the black bezel is
+// physically gone from the frame; PIPInset's border below is the only ring.
 const PIP_SRC = "media/pip_clean_v3b.mp4";
 
 // Client asked for the top-left logo plaque bigger. Rather than touch
@@ -130,7 +142,11 @@ export const PIPInset: React.FC<{ appearAtFrame?: number; sourceStartSeconds?: n
 
   const enter = spring({ frame: local, fps, config: SPRING_SNAP });
   const pipWidth = width * 0.28;
-  const pipHeight = pipWidth * (1280 / 720);
+  // pip_clean_v3b.mp4 is pre-cropped (see its own comment below) to 612x1252
+  // — that real black bezel baked into the recording is physically gone
+  // from the file now, not just covered by a CSS layer, so the aspect ratio
+  // here matches the CROPPED source, not the original 720x1280.
+  const pipHeight = pipWidth * (1252 / 612);
 
   return (
     <AbsoluteFill style={{ pointerEvents: "none" }}>
@@ -262,13 +278,20 @@ export const V3BHang: React.FC = () => {
 // ground, she looks down, says "Seriously?" (burned into the source, no
 // overlay added on top of it) and throws up her hands — in that real order,
 // used exactly once in the whole video, so the caption never duplicates.
-// "WASTED SPEND: FOUND" bounces in near the end of this same clip.
+// "At least ONE thing runs itself." bounces in near the end of this clip.
 // ---------------------------------------------------------------------------
 
 const REACTION_SRC_START = 8.3; // her.mp4 source seconds
 export const V3B_REACTION_DURATION = 52; // ~1.73s, ends exactly at her.mp4's 10.0s (its last usable frame)
 
-const WastedFoundCard: React.FC<{ atFrame: number }> = ({ atFrame }) => {
+// FIX (round 2): "WASTED SPEND: FOUND" removed entirely — the client wants
+// the real "Wasted spend detection" phrase to appear exactly once, later,
+// burned into the actual product screen (V3BAudit's headline), not echoed
+// here first. This beat is now a dry, sarcastic punchline instead: "At
+// least ONE thing runs itself" — landing right after "Seriously?", playing
+// off the chaos she's just been through. "ONE" is the accent word (brand
+// teal, bigger), same pop-in mechanic as before (spring bounce + fade).
+const OneThingCard: React.FC<{ atFrame: number }> = ({ atFrame }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const local = frame - atFrame;
@@ -282,31 +305,33 @@ const WastedFoundCard: React.FC<{ atFrame: number }> = ({ atFrame }) => {
   const opacity = Math.min(bounce, fadeOut);
 
   return (
-    <AbsoluteFill style={{ justifyContent: "flex-start", alignItems: "center", paddingTop: 560, pointerEvents: "none" }}>
+    <AbsoluteFill style={{ justifyContent: "flex-start", alignItems: "center", paddingTop: 540, pointerEvents: "none" }}>
       <div
         style={{
           opacity,
           transform: `scale(${interpolate(bounce, [0, 1], [0.55, 1])})`,
           background: `linear-gradient(160deg, ${COLORS.gradTop} 0%, ${COLORS.gradBottom} 100%)`,
-          border: `3px solid ${AMBER}`,
+          border: `3px solid ${COLORS.accent}`,
           borderRadius: 20,
-          padding: "26px 40px",
+          padding: "28px 40px",
+          maxWidth: 860,
           boxShadow: "0 14px 40px rgba(0,0,0,0.45)",
         }}
       >
         <div
           style={{
             fontFamily: HEADLINE_FONT,
-            fontWeight: 900,
-            fontSize: 52,
-            letterSpacing: 1,
+            fontWeight: 800,
+            fontSize: 44,
+            letterSpacing: 0.5,
             color: COLORS.white,
             textAlign: "center",
-            lineHeight: 1.2,
+            lineHeight: 1.3,
           }}
         >
-          WASTED SPEND:{" "}
-          <span style={{ color: AMBER }}>FOUND</span>
+          At least{" "}
+          <span style={{ color: COLORS.accent, fontWeight: 900, fontSize: 60 }}>ONE</span>{" "}
+          thing runs itself.
         </div>
       </div>
     </AbsoluteFill>
@@ -322,7 +347,7 @@ export const V3BReaction: React.FC = () => {
         startFrom={Math.round(REACTION_SRC_START * fps)}
         style={{ width: "100%", height: "100%", objectFit: "cover" }}
       />
-      <WastedFoundCard atFrame={32} />
+      <OneThingCard atFrame={32} />
       <PIPInset appearAtFrame={-30} sourceStartSeconds={3.0 + V3B_HANG_DURATION / fps} />
       <CornerLogoV3B appearAtFrame={-30} />
     </AbsoluteFill>

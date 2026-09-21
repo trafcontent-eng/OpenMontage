@@ -52,6 +52,7 @@ import {
 const SCREEN_AUDIT = "media/screencast_audit_v3b.mp4"; // trimmed 0-4.2s of file3
 const SCREEN_REPORT = "media/screencast_report_v3b.mp4"; // trimmed 8.0-15.867s of file2 (offset 8.0s)
 const HER_FREEZE = "media/her_glitch_freeze_v3b.png"; // still grabbed at her.mp4 t=8.8s
+const AMBER = "#F5A623"; // brand amber accent — not in shared.tsx's COLORS token set
 
 // ---------------------------------------------------------------------------
 // CORRECTION from the coordinator mid-build: the brand logo belongs top-left
@@ -157,14 +158,27 @@ export const V3BSeriously: React.FC = () => {
 };
 
 // ---------------------------------------------------------------------------
-// 0:04-0:05 — freeze frame (coffee/phone/glasses caught mid-air) + a real,
-// per-frame-interpolated RGB channel-split glitch transition (~0.27s), then
-// holds clean into the cut. Channel isolation done with SVG feColorMatrix
-// filters (three copies of the same still, screen-blended, each shifted).
+// 0:04-0:05 — freeze frame (coffee/phone/glasses caught mid-air). REVISED per
+// coordinator's creative note: rather than a generic glitch cut, the spilled
+// coffee itself becomes the transition — a short RGB-split "impact" shock
+// (~0.2s, real interpolate-driven channel split, kept from the first pass),
+// then the puddle's own footprint on the freeze frame grows into a wipe mask
+// (animated clip-path circle, frame-driven radius + organic wobble, anchored
+// at the coffee's on-screen position) that reveals the Account Audit screen
+// pouring in underneath — the interface is a continuation of the spill, not
+// a cut after it. All mask/channel math is per-frame `interpolate`, done in
+// Remotion; ffmpeg never touches this transition.
 // ---------------------------------------------------------------------------
 
 export const V3B_GLITCH_DURATION = sec(1.0);
-const GLITCH_FRAMES = 8; // ~0.27s @30fps
+const SHOCK_FRAMES = 6; // ~0.2s RGB-split impact
+const WIPE_START = 6;
+const WIPE_END = 27; // ~0.7s pour/reveal
+// Coffee splash centre on the freeze frame, measured on the 720x1280 source
+// (splash mass under the falling lid/cup) and scaled to the 1080x1920 canvas
+// (uniform 1.5x, same aspect ratio as the source — no crop).
+const SPILL_CX = 645;
+const SPILL_CY = 1600;
 
 const GlitchChannel: React.FC<{ filterId: string; shift: number }> = ({ filterId, shift }) => (
   <div
@@ -182,59 +196,99 @@ const GlitchChannel: React.FC<{ filterId: string; shift: number }> = ({ filterId
 
 export const V3BGlitch: React.FC = () => {
   const frame = useCurrentFrame();
-  const decay = interpolate(frame, [0, GLITCH_FRAMES], [1, 0], {
+
+  const shockDecay = interpolate(frame, [0, SHOCK_FRAMES], [1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: Easing.out(Easing.cubic),
   });
-  // A tiny secondary flicker so the glitch doesn't read as a single linear
-  // wipe — two quick pulses inside the 0.2-0.3s window.
-  const pulse = frame < GLITCH_FRAMES ? Math.abs(Math.sin(frame * 1.9)) : 0;
-  const amp = 16 * decay * (0.5 + 0.5 * pulse);
+  const pulse = frame < SHOCK_FRAMES ? Math.abs(Math.sin(frame * 1.9)) : 0;
+  const amp = 16 * shockDecay * (0.5 + 0.5 * pulse);
+
+  // Puddle-wipe: radius grows from 0 (exactly the spill footprint) to a size
+  // that clears the whole 1080x1920 canvas from that off-centre origin, with
+  // a slight per-frame wobble so the edge reads as liquid, not a mechanical
+  // circle. A trailing "wet edge" ring (amber-tinted) rides just ahead of it.
+  const wipeT = interpolate(frame, [WIPE_START, WIPE_END], [0, 1], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.inOut(Easing.cubic),
+  });
+  const wobble = Math.sin(frame * 1.3) * 10 * (1 - wipeT);
+  const radius = wipeT * 2500 + wobble;
+  const edgeRadius = Math.min(2500, radius + 46);
+  const revealed = wipeT > 0.001;
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
       <svg width={0} height={0} style={{ position: "absolute" }}>
         <defs>
           <filter id="chanR">
-            <feColorMatrix
-              type="matrix"
-              values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0"
-            />
+            <feColorMatrix type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" />
           </filter>
           <filter id="chanG">
-            <feColorMatrix
-              type="matrix"
-              values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0"
-            />
+            <feColorMatrix type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" />
           </filter>
           <filter id="chanB">
-            <feColorMatrix
-              type="matrix"
-              values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0"
-            />
+            <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" />
           </filter>
         </defs>
       </svg>
 
-      {/* Base (undisplaced) still keeps the freeze legible even at max glitch. */}
+      {/* Layer 1 — the freeze frame, always the base. */}
       <Img src={staticFile(HER_FREEZE)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
 
-      {decay > 0.01 && (
+      {shockDecay > 0.01 && (
         <>
           <GlitchChannel filterId="chanR" shift={amp} />
           <GlitchChannel filterId="chanG" shift={-amp * 0.6} />
           <GlitchChannel filterId="chanB" shift={-amp} />
-          {/* Thin scanline bands that jitter opacity for one/two frames. */}
           <AbsoluteFill
             style={{
               background:
                 "repeating-linear-gradient(0deg, rgba(255,255,255,0.06) 0px, rgba(255,255,255,0.06) 2px, transparent 2px, transparent 5px)",
-              opacity: decay * 0.5,
+              opacity: shockDecay * 0.5,
               mixBlendMode: "overlay",
             }}
           />
         </>
+      )}
+
+      {/* Layer 2 — the Account Audit screen, poured in through a clip-path
+          mask shaped like the growing coffee puddle. Frozen on its own first
+          frame (startFrom is frame-independent) so the handoff into the next
+          composition, which begins that same footage fresh, is seamless. */}
+      {revealed && (
+        <AbsoluteFill style={{ clipPath: `circle(${radius}px at ${SPILL_CX}px ${SPILL_CY}px)` }}>
+          <OffthreadVideo
+            src={staticFile(SCREEN_AUDIT)}
+            startFrom={0}
+            muted
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        </AbsoluteFill>
+      )}
+
+      {/* Wet leading edge — a thin amber-tinted ring riding just ahead of the
+          reveal radius, selling "liquid" rather than a hard-edged wipe. */}
+      {revealed && wipeT < 0.94 && (
+        <AbsoluteFill
+          style={{
+            clipPath: `circle(${edgeRadius}px at ${SPILL_CX}px ${SPILL_CY}px)`,
+            WebkitClipPath: `circle(${edgeRadius}px at ${SPILL_CX}px ${SPILL_CY}px)`,
+          }}
+        >
+          <AbsoluteFill
+            style={{
+              background: `radial-gradient(circle at ${SPILL_CX}px ${SPILL_CY}px, transparent ${Math.max(
+                0,
+                radius - 4
+              )}px, rgba(120,72,28,0.55) ${radius}px, rgba(245,166,35,0.35) ${radius + 22}px, transparent ${
+                radius + 60
+              }px)`,
+            }}
+          />
+        </AbsoluteFill>
       )}
 
       <PIPInset appearAtFrame={-30} sourceStartSeconds={4.0} />
@@ -402,7 +456,7 @@ const WastedRowHighlight: React.FC<{ atFrame: number }> = ({ atFrame }) => {
           height: ROW_BOX.height,
           opacity,
           transform: `scale(${interpolate(pop, [0, 1], [0.9, 1])})`,
-          border: `5px solid ${COLORS.amber ?? "#F5A623"}`,
+          border: `5px solid ${AMBER}`,
           borderRadius: 18,
           boxShadow: `0 0 ${18 + glow * 20}px rgba(245,166,35,${0.55 + glow * 0.2})`,
         }}
@@ -547,7 +601,7 @@ const WastedFoundCard: React.FC<{ atFrame: number }> = ({ atFrame }) => {
           opacity,
           transform: `scale(${interpolate(bounce, [0, 1], [0.55, 1])})`,
           background: `linear-gradient(160deg, ${COLORS.gradTop} 0%, ${COLORS.gradBottom} 100%)`,
-          border: `3px solid ${COLORS.amber ?? "#F5A623"}`,
+          border: `3px solid ${AMBER}`,
           borderRadius: 20,
           padding: "26px 40px",
           boxShadow: "0 14px 40px rgba(0,0,0,0.45)",
@@ -565,7 +619,7 @@ const WastedFoundCard: React.FC<{ atFrame: number }> = ({ atFrame }) => {
           }}
         >
           WASTED SPEND:{" "}
-          <span style={{ color: COLORS.amber ?? "#F5A623" }}>FOUND</span>
+          <span style={{ color: AMBER }}>FOUND</span>
         </div>
       </div>
     </AbsoluteFill>
@@ -589,6 +643,7 @@ export const V3BWastedFound: React.FC = () => {
         style={{ width: "100%", height: "100%", objectFit: "cover" }}
       />
       <WastedFoundCard atFrame={16} />
+      <PIPInset appearAtFrame={4} sourceStartSeconds={0} />
       <CornerLogo appearAtFrame={-30} />
     </AbsoluteFill>
   );

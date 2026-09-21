@@ -22,6 +22,22 @@ import { RyzeSeg1, RyzeSeg3, SEG1_DURATION, SEG3_DURATION } from "./ryze/RyzeFin
 import { VariantB, VARIANT_B_DURATION } from "./ryze/VariantB";
 import { VariantC, VARIANT_C_DURATION } from "./ryze/VariantC";
 import { Video2Her, VIDEO2_HER_DURATION } from "./ryze/Video2Her";
+import {
+  V3BOpen,
+  V3B_OPEN_DURATION,
+  V3BSeriously,
+  V3B_SERIOUSLY_DURATION,
+  V3BGlitch,
+  V3B_GLITCH_DURATION,
+  V3BAudit,
+  V3B_AUDIT_DURATION,
+  V3BHighlight,
+  V3B_HIGHLIGHT_DURATION,
+  V3BStats,
+  V3B_STATS_DURATION,
+  V3BWastedFound,
+  V3B_WASTED_DURATION,
+} from "./ryze/RyzeV3B";
 
 // ---------------------------------------------------------------------------
 // Theme System — prevents every video from looking like dark fintech

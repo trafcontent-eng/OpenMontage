@@ -25,18 +25,18 @@ import { Video2Her, VIDEO2_HER_DURATION } from "./ryze/Video2Her";
 import {
   V3BOpen,
   V3B_OPEN_DURATION,
-  V3BSeriously,
-  V3B_SERIOUSLY_DURATION,
-  V3BGlitch,
-  V3B_GLITCH_DURATION,
+  V3BHang,
+  V3B_HANG_DURATION,
+  V3BReaction,
+  V3B_REACTION_DURATION,
+  V3BTransition,
+  V3B_TRANSITION_DURATION,
   V3BAudit,
   V3B_AUDIT_DURATION,
   V3BHighlight,
   V3B_HIGHLIGHT_DURATION,
   V3BStats,
   V3B_STATS_DURATION,
-  V3BWastedFound,
-  V3B_WASTED_DURATION,
 } from "./ryze/RyzeV3B";
 import {
   RyzeV3Opening,
@@ -421,17 +421,25 @@ export const Root: React.FC = () => {
         height={1920}
       />
       <Composition
-        id="RyzeV3BSeriously"
-        component={V3BSeriously}
-        durationInFrames={V3B_SERIOUSLY_DURATION}
+        id="RyzeV3BHang"
+        component={V3BHang}
+        durationInFrames={V3B_HANG_DURATION}
         fps={30}
         width={1080}
         height={1920}
       />
       <Composition
-        id="RyzeV3BGlitch"
-        component={V3BGlitch}
-        durationInFrames={V3B_GLITCH_DURATION}
+        id="RyzeV3BReaction"
+        component={V3BReaction}
+        durationInFrames={V3B_REACTION_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+      />
+      <Composition
+        id="RyzeV3BTransition"
+        component={V3BTransition}
+        durationInFrames={V3B_TRANSITION_DURATION}
         fps={30}
         width={1080}
         height={1920}
@@ -456,14 +464,6 @@ export const Root: React.FC = () => {
         id="RyzeV3BStats"
         component={V3BStats}
         durationInFrames={V3B_STATS_DURATION}
-        fps={30}
-        width={1080}
-        height={1920}
-      />
-      <Composition
-        id="RyzeV3BWastedFound"
-        component={V3BWastedFound}
-        durationInFrames={V3B_WASTED_DURATION}
         fps={30}
         width={1080}
         height={1920}

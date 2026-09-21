@@ -201,6 +201,8 @@ export const KineticCaption: React.FC<{
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const local = frame - atFrame;
+  // eslint-disable-next-line no-console
+  console.log("RYZE_KINETIC_RENDER", frame, atFrame, local, text, HEADLINE_FONT);
   if (local < -2) return null;
 
   const words = text.split(" ");

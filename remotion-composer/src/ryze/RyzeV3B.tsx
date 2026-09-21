@@ -38,15 +38,19 @@ import {
 // render (ffmpeg here does ONLY the final stitch of pre-rendered segments +
 // the music mix — never text/drawtext, never the animation itself):
 //
-//   V3BOpen        0:00-0:03  her clip, original beat, "Ryze runs my ads..."
-//   V3BSeriously   0:03-0:04  her clip, "Seriously?" beat (burned-in caption)
-//   V3BGlitch      0:04-0:05  freeze frame + RGB-split glitch transition
-//   V3BAudit       0:05-0:08  screencast 1 full-bleed, "Wasted spend..." pop
-//   V3BHighlight   0:08-0:11  screencast 2 full-bleed, amber outline pop
-//   V3BStats       0:11-0:14  screencast 2 tail, animated ROAS/Revenue counters
-//   V3BWastedFound 0:14-0:16  her clip aftermath, bounce-in overlay card
+//   V3BOpen        0:00-0:03    her clip, original beat, "Ryze runs my ads..."
+//   V3BSeriously   0:03-0:04    her clip, "Seriously?" beat (burned-in caption)
+//   V3BGlitch      0:04-0:06    real slow-mo (0.35x) of her bullet-time footage,
+//                               then RGB-split shock + coffee-wipe transition
+//   V3BAudit       0:06-0:08.7  screencast 1 full-bleed, "Wasted spend..." pop
+//   V3BHighlight   0:08.7-0:11.4 screencast 2 full-bleed, amber outline pop
+//   V3BStats       0:11.4-0:14.4 screencast 2 tail, animated ROAS/Revenue counters
+//   V3BWastedFound 0:14.4-0:16.4 her clip aftermath, bounce-in overlay card
 //
-// The 0:16-0:19 outro card is a separate HyperFrames scene
+// (Audit/Highlight trimmed 3.0->2.7s each to pay for the longer slow-mo
+// beat, per client request, rather than cutting any block's content.)
+//
+// The final outro card is a separate HyperFrames scene
 // (projects/ryze-hyperframes-3/) — deliberately NOT Remotion, per brief.
 // ---------------------------------------------------------------------------
 
@@ -175,20 +179,33 @@ export const V3BSeriously: React.FC = () => {
 };
 
 // ---------------------------------------------------------------------------
-// 0:04-0:05 — freeze frame (coffee/phone/glasses caught mid-air). REVISED per
-// coordinator's creative note: rather than a generic glitch cut, the spilled
-// coffee itself becomes the transition — a short RGB-split "impact" shock
-// (~0.2s, real interpolate-driven channel split, kept from the first pass),
-// then the puddle's own footprint on the freeze frame grows into a wipe mask
-// (animated clip-path circle, frame-driven radius + organic wobble, anchored
-// at the coffee's on-screen position) that reveals the Account Audit screen
-// pouring in underneath — the interface is a continuation of the spill, not
-// a cut after it. All mask/channel math is per-frame `interpolate`, done in
-// Remotion; ffmpeg never touches this transition.
+// 0:04-0:06 — REVISED per client feedback: this used to be a single 1s
+// freeze; her source actually has a real bullet-time slow-mo passage right
+// here (source ~4.0-8.0s — extreme close-ups of the phone/glasses/coffee
+// genuinely drifting in the air, verified frame-by-frame), and a static
+// freeze threw that away. So this composition is now two real beats:
+//
+//   1. SLOWMO_FRAMES (1.0s of screen time): actual playback of her.mp4 from
+//      source 4.0s at `playbackRate={SLOWMO_RATE}` (0.35 — inside the
+//      requested 0.3-0.4 range) — a real decoded, genuinely slow clip, not
+//      a frozen frame stretched out.
+//   2. The existing (unchanged) coffee-becomes-interface beat: a short
+//      RGB-split "impact" shock, then the spill's footprint on a freeze
+//      frame (grabbed later, ~8.8s, where the coffee has actually hit the
+//      ground) grows into a wipe mask that pours the Account Audit screen
+//      in underneath. Per the coordinator, this part already works — only
+//      its start offset moved, nothing about how it works changed.
+//
+// All of it is per-frame `interpolate`/`playbackRate` in Remotion; ffmpeg
+// never touches this transition, only the final concat afterward.
 // ---------------------------------------------------------------------------
 
-export const V3B_GLITCH_DURATION = sec(1.0);
-const SHOCK_FRAMES = 6; // ~0.2s RGB-split impact
+const SLOWMO_FRAMES = 30; // 1.0s of screen time
+const SLOWMO_SRC_START = 4.0; // her.mp4 source seconds — start of the bullet-time passage
+const SLOWMO_RATE = 0.35; // real decoded playback, 0.35x — inside the requested 0.3-0.4 range
+
+export const V3B_GLITCH_DURATION = SLOWMO_FRAMES + sec(1.0); // 2.0s total
+const SHOCK_FRAMES = 6; // ~0.2s RGB-split impact (measured from the END of the slow-mo phase)
 const WIPE_START = 6;
 const WIPE_END = 27; // ~0.7s pour/reveal
 // Coffee splash centre on the freeze frame, measured on the 720x1280 source
@@ -213,25 +230,48 @@ const GlitchChannel: React.FC<{ filterId: string; shift: number }> = ({ filterId
 
 export const V3BGlitch: React.FC = () => {
   const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
 
-  const shockDecay = interpolate(frame, [0, SHOCK_FRAMES], [1, 0], {
+  // Phase 1: real slow-motion playback — genuine decoded frames of her
+  // source at a fraction of real speed, not a still.
+  if (frame < SLOWMO_FRAMES) {
+    return (
+      <AbsoluteFill style={{ backgroundColor: "#000" }}>
+        <OffthreadVideo
+          src={staticFile("media/her.mp4")}
+          startFrom={Math.round(SLOWMO_SRC_START * fps)}
+          playbackRate={SLOWMO_RATE}
+          muted
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+        <PIPInset appearAtFrame={-30} sourceStartSeconds={4.0} />
+        <CornerLogoV3B appearAtFrame={-30} />
+      </AbsoluteFill>
+    );
+  }
+
+  // Phase 2 (unchanged design, just re-timed): impact shock + coffee wipe,
+  // measured from the moment this phase starts rather than from frame 0.
+  const glitchFrame = frame - SLOWMO_FRAMES;
+
+  const shockDecay = interpolate(glitchFrame, [0, SHOCK_FRAMES], [1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: Easing.out(Easing.cubic),
   });
-  const pulse = frame < SHOCK_FRAMES ? Math.abs(Math.sin(frame * 1.9)) : 0;
+  const pulse = glitchFrame < SHOCK_FRAMES ? Math.abs(Math.sin(glitchFrame * 1.9)) : 0;
   const amp = 16 * shockDecay * (0.5 + 0.5 * pulse);
 
   // Puddle-wipe: radius grows from 0 (exactly the spill footprint) to a size
   // that clears the whole 1080x1920 canvas from that off-centre origin, with
   // a slight per-frame wobble so the edge reads as liquid, not a mechanical
   // circle. A trailing "wet edge" ring (amber-tinted) rides just ahead of it.
-  const wipeT = interpolate(frame, [WIPE_START, WIPE_END], [0, 1], {
+  const wipeT = interpolate(glitchFrame, [WIPE_START, WIPE_END], [0, 1], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
     easing: Easing.inOut(Easing.cubic),
   });
-  const wobble = Math.sin(frame * 1.3) * 10 * (1 - wipeT);
+  const wobble = Math.sin(glitchFrame * 1.3) * 10 * (1 - wipeT);
   const radius = wipeT * 2500 + wobble;
   const edgeRadius = Math.min(2500, radius + 46);
   const revealed = wipeT > 0.001;
@@ -371,7 +411,11 @@ const ZoomVideo: React.FC<{
 // "RYZE AUDIT" small + "Wasted spend detection" big (Wasted = accent), pop-in.
 // ---------------------------------------------------------------------------
 
-export const V3B_AUDIT_DURATION = sec(3.0);
+// Trimmed 3.0 -> 2.7s (client's suggestion: shave ~0.3s off two of the three
+// screen blocks to pay for the new slow-mo phase above, rather than cutting
+// any one block's content outright). Only the tail hold shortens — the pop-in
+// is unaffected since it starts at frame 6.
+export const V3B_AUDIT_DURATION = sec(2.7);
 
 const AuditHeadline: React.FC<{ atFrame: number }> = ({ atFrame }) => {
   const frame = useCurrentFrame();
@@ -456,7 +500,10 @@ export const V3BAudit: React.FC = () => {
 // 0.3-0.4s, positioned against the verified on-screen crop of that row.
 // ---------------------------------------------------------------------------
 
-export const V3B_HIGHLIGHT_DURATION = sec(3.0);
+// Trimmed 3.0 -> 2.7s, same reasoning as V3B_AUDIT_DURATION above. The amber
+// highlight pop (frame 30 local) and its fade (done well before frame 81)
+// are both unaffected.
+export const V3B_HIGHLIGHT_DURATION = sec(2.7);
 // screencast_report_v3b.mp4 plays at real 1x from this trim-in point (fixed
 // after the ZoomVideo speed bug above), so local frame f shows trimmed
 // source frame round(1.7*30)+f = 51+f. Verified frame-by-frame against the

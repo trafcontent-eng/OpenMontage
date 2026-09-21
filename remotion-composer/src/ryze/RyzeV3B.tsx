@@ -1,6 +1,7 @@
 import React from "react";
 import {
   AbsoluteFill,
+  Freeze,
   Img,
   OffthreadVideo,
   Sequence,
@@ -101,9 +102,14 @@ export const PIPInset: React.FC<{ appearAtFrame?: number; sourceStartSeconds?: n
           backgroundColor: "#0b2a2e",
         }}
       >
+        {/* NOTE: OffthreadVideo already advances one source frame per
+            composition frame on its own — `startFrom` is only the fixed
+            trim-in point, added ONCE. (An earlier pass here manually added
+            `frame` on top of it too, which silently doubled playback speed —
+            same bug fixed below in ZoomVideo/WastedFound.) */}
         <OffthreadVideo
           src={staticFile(PIP_SRC)}
-          startFrom={Math.round(sourceStartSeconds * fps) + Math.max(0, frame)}
+          startFrom={Math.round(sourceStartSeconds * fps)}
           muted
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
@@ -255,17 +261,21 @@ export const V3BGlitch: React.FC = () => {
       )}
 
       {/* Layer 2 — the Account Audit screen, poured in through a clip-path
-          mask shaped like the growing coffee puddle. Frozen on its own first
-          frame (startFrom is frame-independent) so the handoff into the next
-          composition, which begins that same footage fresh, is seamless. */}
+          mask shaped like the growing coffee puddle. Pinned to the footage's
+          very first frame via <Freeze> (a plain constant `startFrom` still
+          auto-advances in Remotion — Freeze is the real way to hold a single
+          frame), so the handoff into the next composition, which begins that
+          same footage fresh at frame 0, is seamless with no rewind hiccup. */}
       {revealed && (
         <AbsoluteFill style={{ clipPath: `circle(${radius}px at ${SPILL_CX}px ${SPILL_CY}px)` }}>
-          <OffthreadVideo
-            src={staticFile(SCREEN_AUDIT)}
-            startFrom={0}
-            muted
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          />
+          <Freeze frame={0}>
+            <OffthreadVideo
+              src={staticFile(SCREEN_AUDIT)}
+              startFrom={0}
+              muted
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+          </Freeze>
         </AbsoluteFill>
       )}
 
@@ -299,6 +309,15 @@ export const V3BGlitch: React.FC = () => {
 
 // ---------------------------------------------------------------------------
 // Shared: light programmatic Ken-Burns zoom for a full-bleed video layer.
+//
+// IMPORTANT Remotion gotcha (cost a debugging pass to find): <OffthreadVideo>
+// already advances one source frame per composition frame on its own once
+// mounted — `startFrom` is only the fixed trim-in point, not a running
+// offset. Adding the current `frame` to it a second time (as an earlier
+// version of this file did, to "clamp" a freeze) silently doubled playback
+// speed instead. A real, glitch-free freeze needs Remotion's own <Freeze>,
+// which pins children's useCurrentFrame() — used below once real playback
+// exhausts `playSeconds` of source.
 // ---------------------------------------------------------------------------
 
 const ZoomVideo: React.FC<{
@@ -316,17 +335,21 @@ const ZoomVideo: React.FC<{
     easing: Easing.out(Easing.quad),
   });
   const playFrames = Math.round(playSeconds * fps);
-  const clampedFrame = Math.min(frame, playFrames);
+  const baseStart = Math.round(startFromSeconds * fps);
+
+  const video = (
+    <OffthreadVideo
+      src={staticFile(src)}
+      startFrom={baseStart}
+      muted
+      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+    />
+  );
 
   return (
     <AbsoluteFill style={{ overflow: "hidden", backgroundColor: "#0b2a2e" }}>
       <div style={{ position: "absolute", inset: 0, transform: `scale(${scale})`, transformOrigin: "center" }}>
-        <OffthreadVideo
-          src={staticFile(src)}
-          startFrom={Math.round(startFromSeconds * fps) + clampedFrame}
-          muted
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-        />
+        {frame <= playFrames ? video : <Freeze frame={playFrames}>{video}</Freeze>}
       </div>
     </AbsoluteFill>
   );
@@ -423,13 +446,17 @@ export const V3BAudit: React.FC = () => {
 // ---------------------------------------------------------------------------
 
 export const V3B_HIGHLIGHT_DURATION = sec(3.0);
-// screencast_report_v3b.mp4 is trimmed starting at absolute file2 t=8.0s.
-const HIGHLIGHT_SRC_OFFSET = 1.7; // -> absolute 9.7s
-const HIGHLIGHT_POP_AT = 18; // local frame the amber box pops in (0.6s in)
+// screencast_report_v3b.mp4 plays at real 1x from this trim-in point (fixed
+// after the ZoomVideo speed bug above), so local frame f shows trimmed
+// source frame round(1.7*30)+f = 51+f. Verified frame-by-frame against the
+// actual encoded file: source frame ~90 (local ~39) is where "Wasted spend
+// detection" sits fully framed, mid-upper screen, scroll settling.
+const HIGHLIGHT_SRC_OFFSET = 1.7;
+const HIGHLIGHT_POP_AT = 30; // pop completes right as the row settles into frame
 
-// Row crop verified against extracted frames at absolute ~10.0-11.0s:
-// source is 720x1280, canvas is 1080x1920 (uniform 1.5x cover scale).
-const ROW_BOX = { left: 118, top: 655, width: 410, height: 150 };
+// Row crop verified against the actual trimmed source file at that frame
+// (720x1280); canvas is 1080x1920 (uniform 1.5x cover scale, no crop).
+const ROW_BOX = { left: 120, top: 505, width: 400, height: 185 };
 
 const WastedRowHighlight: React.FC<{ atFrame: number }> = ({ atFrame }) => {
   const frame = useCurrentFrame();
@@ -438,7 +465,9 @@ const WastedRowHighlight: React.FC<{ atFrame: number }> = ({ atFrame }) => {
   if (local < -2) return null;
 
   const pop = spring({ frame: local, fps, config: { damping: 12, stiffness: 220, mass: 0.7 } });
-  const fadeOut = interpolate(frame, [atFrame + 46, atFrame + 58], [1, 0], {
+  // Short flash per brief (~0.3-0.4s pop, brief hold, quick fade) rather than
+  // a long hold — the background keeps scrolling under it either way.
+  const fadeOut = interpolate(frame, [atFrame + 16, atFrame + 24], [1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -630,18 +659,22 @@ export const V3BWastedFound: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const playFrames = Math.round(WASTED_PLAY_SECONDS * fps);
-  const clampedFrame = Math.min(frame, playFrames);
+  const baseStart = Math.round(WASTED_SRC_START * fps);
+
+  const video = (
+    <OffthreadVideo
+      src={staticFile("media/her.mp4")}
+      startFrom={baseStart}
+      // Audio only plays through the real (unfrozen) portion — she has no
+      // more dialogue here, avoids looping a stray audio frame on freeze.
+      volume={frame <= playFrames ? 1 : 0}
+      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+    />
+  );
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
-      <OffthreadVideo
-        src={staticFile("media/her.mp4")}
-        startFrom={Math.round(WASTED_SRC_START * fps) + clampedFrame}
-        // Audio only plays through the real (unfrozen) portion — she has no
-        // more dialogue here, avoids looping a stray audio frame on freeze.
-        volume={frame <= playFrames ? 1 : 0}
-        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-      />
+      {frame <= playFrames ? video : <Freeze frame={playFrames}>{video}</Freeze>}
       <WastedFoundCard atFrame={16} />
       <PIPInset appearAtFrame={4} sourceStartSeconds={0} />
       <CornerLogo appearAtFrame={-30} />

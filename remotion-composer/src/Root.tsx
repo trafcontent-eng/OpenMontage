@@ -38,6 +38,18 @@ import {
   V3BWastedFound,
   V3B_WASTED_DURATION,
 } from "./ryze/RyzeV3B";
+import {
+  RyzeV3Opening,
+  OPENING_DURATION,
+  RyzeV3Audit,
+  AUDIT_DURATION,
+  RyzeV3Report,
+  REPORT_DURATION,
+  RyzeV3Results,
+  RESULTS_DURATION,
+  RyzeV3Gesture,
+  GESTURE_DURATION,
+} from "./ryze/RyzeV3";
 
 // ---------------------------------------------------------------------------
 // Theme System — prevents every video from looking like dark fintech
@@ -452,6 +464,46 @@ export const Root: React.FC = () => {
         id="RyzeV3BWastedFound"
         component={V3BWastedFound}
         durationInFrames={V3B_WASTED_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+      />
+      <Composition
+        id="RyzeV3AOpening"
+        component={RyzeV3Opening}
+        durationInFrames={OPENING_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+      />
+      <Composition
+        id="RyzeV3AAudit"
+        component={RyzeV3Audit}
+        durationInFrames={AUDIT_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+      />
+      <Composition
+        id="RyzeV3AReport"
+        component={RyzeV3Report}
+        durationInFrames={REPORT_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+      />
+      <Composition
+        id="RyzeV3AResults"
+        component={RyzeV3Results}
+        durationInFrames={RESULTS_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+      />
+      <Composition
+        id="RyzeV3AGesture"
+        component={RyzeV3Gesture}
+        durationInFrames={GESTURE_DURATION}
         fps={30}
         width={1080}
         height={1920}

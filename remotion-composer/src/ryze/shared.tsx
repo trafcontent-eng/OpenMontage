@@ -697,6 +697,57 @@ export const SitePipInset: React.FC<{
 const COFFEE_NORM_X = 0.667;
 const COFFEE_NORM_Y = 0.852;
 
+// Very short RGB channel-split "impact" shock at the top of the transition —
+// three copies of the freeze frame, each isolated to one color channel via
+// an SVG feColorMatrix filter and nudged a few px apart, decaying to 0 over
+// ~0.2-0.3s. Pure per-frame interpolate(), no ffmpeg filter.
+const RgbShock: React.FC<{ spanFrames: number }> = ({ spanFrames }) => {
+  const frame = useCurrentFrame();
+  const decay = interpolate(frame, [0, spanFrames], [1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.out(Easing.cubic),
+  });
+  if (decay <= 0.01) return null;
+  const wobble = Math.abs(Math.sin(frame * 2.1));
+  const amp = 14 * decay * (0.4 + 0.6 * wobble);
+
+  const channel = (filterId: string, shift: number) => (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        transform: `translateX(${shift}px)`,
+        mixBlendMode: "screen" as const,
+        filter: `url(#${filterId})`,
+      }}
+    >
+      <Img src={staticFile(FREEZE_COFFEE)} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+    </div>
+  );
+
+  return (
+    <>
+      <svg width={0} height={0} style={{ position: "absolute" }}>
+        <defs>
+          <filter id="v3aChanR">
+            <feColorMatrix type="matrix" values="1 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" />
+          </filter>
+          <filter id="v3aChanG">
+            <feColorMatrix type="matrix" values="0 0 0 0 0  0 1 0 0 0  0 0 0 0 0  0 0 0 1 0" />
+          </filter>
+          <filter id="v3aChanB">
+            <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 1 0 0  0 0 0 1 0" />
+          </filter>
+        </defs>
+      </svg>
+      {channel("v3aChanR", amp)}
+      {channel("v3aChanG", -amp * 0.5)}
+      {channel("v3aChanB", -amp)}
+    </>
+  );
+};
+
 export const CoffeeToScreenWipe: React.FC<{ durationInFrames: number }> = ({ durationInFrames }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -737,6 +788,10 @@ export const CoffeeToScreenWipe: React.FC<{ durationInFrames: number }> = ({ dur
         src={staticFile(FREEZE_COFFEE)}
         style={{ width: "100%", height: "100%", objectFit: "cover" }}
       />
+
+      {/* RGB channel-split impact shock, ~0.2-0.3s, decaying before the
+          puddle starts to open. */}
+      <RgbShock spanFrames={Math.max(6, Math.round(fps * 0.25))} />
 
       {/* Glowing rim tracing the wipe edge — sells the "screen waking up
           out of the puddle" read. Rendered as a ring via two stacked
@@ -856,7 +911,7 @@ export const AmberRowHighlight: React.FC<{
 
   const opacity = interpolate(
     local,
-    [0, 3, spanFrames, spanFrames + 10],
+    [0, 3, spanFrames, spanFrames + 5],
     [0, 1, 1, 0],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );

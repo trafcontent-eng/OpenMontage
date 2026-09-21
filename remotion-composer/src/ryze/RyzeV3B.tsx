@@ -291,7 +291,16 @@ export const V3BHang: React.FC = () => {
 // ---------------------------------------------------------------------------
 
 const REACTION_SRC_START = 8.3; // her.mp4 source seconds
-export const V3B_REACTION_DURATION = 52; // ~1.73s, ends exactly at her.mp4's 10.0s (its last usable frame)
+const REACTION_REAL_FRAMES = 52; // ~1.73s of real playback, ends exactly at her.mp4's 10.0s (its last usable frame)
+// FIX (round 4): client feedback — "Seriously?" (burned into the source)
+// and "At least ONE thing runs itself." were both on/off screen too fast to
+// read before the cut into the transition. Real footage runs out at 10.0s,
+// so the extra time is a genuine <Freeze> hold on that last frame (not more
+// playback — there isn't any left) — the text card's own hold/fade timing
+// is stretched to match. +27 frames (~0.9s) — was 52 frames (1.733s), now
+// 79 frames (2.633s).
+const REACTION_FREEZE_HOLD_FRAMES = 27; // ~0.9s
+export const V3B_REACTION_DURATION = REACTION_REAL_FRAMES + REACTION_FREEZE_HOLD_FRAMES; // 79 frames, 2.633s
 
 // FIX (round 2): "WASTED SPEND: FOUND" removed entirely — the client wants
 // the real "Wasted spend detection" phrase to appear exactly once, later,
@@ -300,14 +309,18 @@ export const V3B_REACTION_DURATION = 52; // ~1.73s, ends exactly at her.mp4's 10
 // least ONE thing runs itself" — landing right after "Seriously?", playing
 // off the chaos she's just been through. "ONE" is the accent word (brand
 // teal, bigger), same pop-in mechanic as before (spring bounce + fade).
-const OneThingCard: React.FC<{ atFrame: number }> = ({ atFrame }) => {
+// FIX (round 4): hold/fade timing now takes an explicit `fadeOutAtFrame`
+// (rather than a fixed +14/+20 from atFrame) so it can be stretched to match
+// the longer freeze hold in V3BReaction below — both this card and her
+// source's own "Seriously?" caption need real time on screen to read.
+const OneThingCard: React.FC<{ atFrame: number; fadeOutAtFrame: number }> = ({ atFrame, fadeOutAtFrame }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
   const local = frame - atFrame;
-  if (local < -2 || local > 20) return null;
+  if (local < -2) return null;
 
   const bounce = spring({ frame: local, fps, config: { damping: 9, stiffness: 200, mass: 0.8 } });
-  const fadeOut = interpolate(frame, [atFrame + 14, atFrame + 20], [1, 0], {
+  const fadeOut = interpolate(frame, [fadeOutAtFrame, fadeOutAtFrame + 8], [1, 0], {
     extrapolateLeft: "clamp",
     extrapolateRight: "clamp",
   });
@@ -348,15 +361,25 @@ const OneThingCard: React.FC<{ atFrame: number }> = ({ atFrame }) => {
 };
 
 export const V3BReaction: React.FC = () => {
+  const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
+
+  const video = (
+    <OffthreadVideo
+      src={staticFile("media/her.mp4")}
+      startFrom={Math.round(REACTION_SRC_START * fps)}
+      // Audio only plays through the real portion — once <Freeze> holds the
+      // last frame (source is out, there's no more footage), muting avoids
+      // looping that one audio frame for the extra hold time.
+      volume={frame <= REACTION_REAL_FRAMES ? 1 : 0}
+      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+    />
+  );
+
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
-      <OffthreadVideo
-        src={staticFile("media/her.mp4")}
-        startFrom={Math.round(REACTION_SRC_START * fps)}
-        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-      />
-      <OneThingCard atFrame={32} />
+      {frame <= REACTION_REAL_FRAMES ? video : <Freeze frame={REACTION_REAL_FRAMES}>{video}</Freeze>}
+      <OneThingCard atFrame={32} fadeOutAtFrame={REACTION_REAL_FRAMES + REACTION_FREEZE_HOLD_FRAMES - 11} />
       <PIPInset appearAtFrame={-30} sourceStartSeconds={3.0 + V3B_HANG_DURATION / fps} />
       <CornerLogoV3B appearAtFrame={-30} />
     </AbsoluteFill>

@@ -16,6 +16,9 @@ import { ProductReveal, ProductRevealProps } from "./components/ProductReveal";
 import { CaptionOverlay, WordCaption } from "./components/CaptionOverlay";
 import { CollageBurst, CollageBurstProps } from "./CollageBurst";
 import { LyricOverlay, LyricOverlayProps } from "./LyricOverlay";
+import { VariantA, VARIANT_A_DURATION } from "./ryze/VariantA";
+import { VariantB, VARIANT_B_DURATION } from "./ryze/VariantB";
+import { VariantC, VARIANT_C_DURATION } from "./ryze/VariantC";
 
 // ---------------------------------------------------------------------------
 // Theme System — prevents every video from looking like dark fintech
@@ -329,6 +332,30 @@ export const Root: React.FC = () => {
           fadeOutSeconds: 1.5,
           overlay: true,
         } as EndTagProps}
+      />
+      <Composition
+        id="RyzeVariantA"
+        component={VariantA}
+        durationInFrames={VARIANT_A_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+      />
+      <Composition
+        id="RyzeVariantB"
+        component={VariantB}
+        durationInFrames={VARIANT_B_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+      />
+      <Composition
+        id="RyzeVariantC"
+        component={VariantC}
+        durationInFrames={VARIANT_C_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
       />
     </>
   );

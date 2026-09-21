@@ -114,10 +114,19 @@ const AMBER = "#F5A623"; // brand amber accent — not in shared.tsx's COLORS to
 // clip. That's a baked-in border from the screencast/phone-mockup capture
 // itself, not something a CSS layer can hide — the teal ring drawn in
 // PIPInset below was always going to look like it sat on top of a second,
-// darker border because that darker border is real pixels in the video. The
-// source file referenced here is now pre-cropped with that exact ffmpeg
-// crop filter BEFORE anything else touches it, so the black bezel is
-// physically gone from the frame; PIPInset's border below is the only ring.
+// darker border because that darker border is real pixels in the video.
+// FIX (round 3): that first crop only removed the side/bottom bezel margin
+// — it left the phone's own status bar (signal/wifi/battery/clock icons, a
+// dark-but-not-pure-black strip `cropdetect`'s default threshold didn't
+// flag) sitting right above the "Ryze" header, plus a matching dark nav bar
+// at the very bottom. Measured both directly (row-by-row average brightness
+// scan): status bar ends at source y≈53, nav bar starts at source y≈1202
+// (in the original 720x1280 frame). The source file referenced here is now
+// cropped with `crop=612:1142:54:56` — combining the side-bezel and status-
+// /nav-bar trims into one crop, applied BEFORE anything else touches the
+// file — so the whole thing (side bezel + status bar + nav bar) is
+// physically gone from the frame; PIPInset's teal border below is the only
+// ring anywhere near this footage.
 const PIP_SRC = "media/pip_clean_v3b.mp4";
 
 // Client asked for the top-left logo plaque bigger. Rather than touch
@@ -142,11 +151,11 @@ export const PIPInset: React.FC<{ appearAtFrame?: number; sourceStartSeconds?: n
 
   const enter = spring({ frame: local, fps, config: SPRING_SNAP });
   const pipWidth = width * 0.28;
-  // pip_clean_v3b.mp4 is pre-cropped (see its own comment below) to 612x1252
-  // — that real black bezel baked into the recording is physically gone
-  // from the file now, not just covered by a CSS layer, so the aspect ratio
-  // here matches the CROPPED source, not the original 720x1280.
-  const pipHeight = pipWidth * (1252 / 612);
+  // pip_clean_v3b.mp4 is pre-cropped (see its own comment above) to 612x1142
+  // — side bezel AND status/nav bars all physically gone from the file now,
+  // not just covered by a CSS layer, so the aspect ratio here matches the
+  // CROPPED source, not the original 720x1280.
+  const pipHeight = pipWidth * (1142 / 612);
 
   return (
     <AbsoluteFill style={{ pointerEvents: "none" }}>

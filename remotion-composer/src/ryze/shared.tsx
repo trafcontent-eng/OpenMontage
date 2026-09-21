@@ -597,7 +597,18 @@ export const FullBleedZoomVideo: React.FC<{
   zoomTo: number;
   durationInFrames: number;
   muted?: boolean;
-}> = ({ src, sourceInSeconds = 0, normX, normY, zoomFrom, zoomTo, durationInFrames, muted = true }) => {
+  playbackRate?: number;
+}> = ({
+  src,
+  sourceInSeconds = 0,
+  normX,
+  normY,
+  zoomFrom,
+  zoomTo,
+  durationInFrames,
+  muted = true,
+  playbackRate = 1,
+}) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -618,6 +629,7 @@ export const FullBleedZoomVideo: React.FC<{
         src={staticFile(src)}
         startFrom={Math.round(sourceInSeconds * fps)}
         muted={muted}
+        playbackRate={playbackRate}
         style={{ position: "absolute", width: videoW, height: videoH, left, top }}
       />
     </AbsoluteFill>

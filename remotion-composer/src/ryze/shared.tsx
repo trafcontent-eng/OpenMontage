@@ -101,6 +101,7 @@ export const COLORS = {
   gradTop: "#297E8A",
   gradBottom: "#3C939D",
   accent: "#4FC3D9",
+  amber: "#F5A623",
   white: "#FFFFFF",
   ink: "#0B2A2E",
 };
@@ -571,3 +572,348 @@ export const CTACard: React.FC<{ startFrame?: number }> = ({ startFrame = 0 }) =
 };
 
 export const sec = (s: number, fps = 30) => Math.round(s * fps);
+
+// ---------------------------------------------------------------------------
+// v3 additions — full-bleed screencast crop/zoom, corner-logo-safe site PIP,
+// coffee-spill iris wipe transition, amber row highlight, bounce callout.
+// ---------------------------------------------------------------------------
+
+export const SCREENCAST1_AUDIT = "media/screencast1_audit.mp4";
+export const SCREENCAST2_REPORT = "media/screencast2_report.mp4";
+export const FREEZE_COFFEE = "media/freeze_coffee.png";
+export const FREEZE_SCREEN1 = "media/freeze_screen1.png";
+
+// Full-bleed screencast crop with a continuous (Ken-Burns) programmatic zoom —
+// not a static picture. normX/normY are the 0..1 focal point in SOURCE pixel
+// space (matches BrollFrame's convention); zoomFrom/zoomTo animate linearly
+// across the given frame span so the crop keeps drifting in for the whole
+// segment, per brief ("лёгкий programmatic zoom, не статичная картинка").
+export const FullBleedZoomVideo: React.FC<{
+  src: string;
+  sourceInSeconds?: number;
+  normX: number;
+  normY: number;
+  zoomFrom: number;
+  zoomTo: number;
+  durationInFrames: number;
+  muted?: boolean;
+}> = ({ src, sourceInSeconds = 0, normX, normY, zoomFrom, zoomTo, durationInFrames, muted = true }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+
+  const zoom = interpolate(frame, [0, durationInFrames], [zoomFrom, zoomTo], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+    easing: Easing.out(Easing.quad),
+  });
+
+  const videoW = 1080 * zoom;
+  const videoH = 1920 * zoom;
+  const left = -(normX * 1080 * zoom - 540);
+  const top = -(normY * 1920 * zoom - 960);
+
+  return (
+    <AbsoluteFill style={{ overflow: "hidden", backgroundColor: "#0b2a2e" }}>
+      <OffthreadVideo
+        src={staticFile(src)}
+        startFrom={Math.round(sourceInSeconds * fps)}
+        muted={muted}
+        style={{ position: "absolute", width: videoW, height: videoH, left, top }}
+      />
+    </AbsoluteFill>
+  );
+};
+
+// Persistent small brand plaque — top-left, dark translucent pill. This is a
+// thin alias over CornerLogo kept for readability in the v3 files (same
+// component, same position: the brief's corrected placement).
+export const TopLeftLogo = CornerLogo;
+
+// Small circular "what's happening at the same time" inset — bottom-right,
+// thin WHITE ring (distinct from the teal-ringed PipOverlay used in the
+// original hybrid cut), sized ~28% of frame width. Used only in the beats
+// where her clip is the foreground (raw talking-head footage), per the
+// brief's correction — never over the full-bleed screencast beats.
+export const SitePipInset: React.FC<{
+  src: string;
+  sourceInSeconds: number;
+  appearAtFrame?: number;
+}> = ({ src, sourceInSeconds, appearAtFrame = 0 }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const local = frame - appearAtFrame;
+  if (local < -1) return null;
+
+  const entrance = spring({ frame: local, fps, config: SPRING_SNAP });
+  const size = 300; // ~28% of 1080
+
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
+      <div
+        style={{
+          position: "absolute",
+          right: 40,
+          bottom: 40,
+          width: size,
+          height: size,
+          borderRadius: "50%",
+          overflow: "hidden",
+          opacity: entrance,
+          transform: `scale(${interpolate(entrance, [0, 1], [0.7, 1])})`,
+          border: "4px solid rgba(255,255,255,0.92)",
+          boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
+          backgroundColor: "#062024",
+        }}
+      >
+        <OffthreadVideo
+          src={staticFile(src)}
+          startFrom={Math.round(sourceInSeconds * fps) + frame}
+          muted
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+// Coffee-spill iris wipe — the stop-frame's spilled coffee puddle (measured
+// at ~66.7%/85.2% of the frame) becomes the ORIGIN of a growing circular
+// mask that reveals the Account Audit screen underneath, so the interface
+// reads as a continuation of the coffee gag rather than a cut glued on top.
+// Pure Remotion: an animated clip-path circle() driven by interpolate(),
+// plus a soft glowing rim that grows with it.
+const COFFEE_NORM_X = 0.667;
+const COFFEE_NORM_Y = 0.852;
+
+export const CoffeeToScreenWipe: React.FC<{ durationInFrames: number }> = ({ durationInFrames }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+
+  // Hold on the pure freeze for the first ~20%, then the puddle "opens up".
+  const holdFrames = Math.round(durationInFrames * 0.2);
+  const wipeStart = holdFrames;
+  const wipeFrames = durationInFrames - holdFrames;
+
+  const wipeProgress = spring({
+    frame: frame - wipeStart,
+    fps,
+    config: { damping: 14, stiffness: 90, mass: 1 },
+    durationInFrames: wipeFrames,
+  });
+
+  // Radius large enough to fully cover the 1080x1920 canvas from the
+  // bottom-right-ish coffee point (worst-case distance to the far corner).
+  const maxRadiusPct = 165;
+  const radiusPct = interpolate(wipeProgress, [0, 1], [0, maxRadiusPct], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  const originX = COFFEE_NORM_X * 100;
+  const originY = COFFEE_NORM_Y * 100;
+
+  const glowRadiusPct = Math.max(0, radiusPct - 6);
+  const glowOpacity = interpolate(wipeProgress, [0, 0.15, 0.85, 1], [0, 0.9, 0.7, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  return (
+    <AbsoluteFill>
+      {/* Frozen stop-frame: her clip, coffee already spilled at her feet. */}
+      <Img
+        src={staticFile(FREEZE_COFFEE)}
+        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+      />
+
+      {/* Glowing rim tracing the wipe edge — sells the "screen waking up
+          out of the puddle" read. Rendered as a ring via two stacked
+          radial gradients clipped to an annulus. */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          opacity: glowOpacity,
+          clipPath: `circle(${glowRadiusPct}% at ${originX}% ${originY}%)`,
+          background: `radial-gradient(circle at ${originX}% ${originY}%, transparent ${Math.max(
+            0,
+            glowRadiusPct - 3
+          )}%, rgba(79,195,217,0.9) ${glowRadiusPct}%, rgba(41,126,138,0) ${glowRadiusPct + 4}%)`,
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* The interface, revealed through the growing coffee-puddle mask. */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          clipPath: `circle(${radiusPct}% at ${originX}% ${originY}%)`,
+        }}
+      >
+        <Img
+          src={staticFile(FREEZE_SCREEN1)}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+// "RYZE AUDIT" eyebrow + big headline ("Wasted" in accent), spring pop-in —
+// the HyperFrames-style kinetic title used over the Account Audit screencast.
+export const AuditTitleOverlay: React.FC<{ atFrame: number }> = ({ atFrame }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const local = frame - atFrame;
+  if (local < -2) return null;
+
+  const eyebrow = spring({ frame: local, fps, config: SPRING_SNAP });
+  const word1 = spring({ frame: local - 6, fps, config: SPRING_BOUNCE });
+  const word2 = spring({ frame: local - 12, fps, config: SPRING_BOUNCE });
+
+  return (
+    <AbsoluteFill style={{ justifyContent: "flex-start", alignItems: "center", paddingTop: 150, pointerEvents: "none" }}>
+      <div
+        style={{
+          fontFamily: BODY_FONT,
+          fontWeight: 700,
+          fontSize: 28,
+          letterSpacing: "0.16em",
+          textTransform: "uppercase",
+          color: "rgba(255,255,255,0.88)",
+          opacity: eyebrow,
+          transform: `translateY(${interpolate(eyebrow, [0, 1], [-14, 0])}px)`,
+          textShadow: "0 4px 16px rgba(0,0,0,0.5)",
+          marginBottom: 14,
+        }}
+      >
+        Ryze Audit
+      </div>
+      <div
+        style={{
+          display: "flex",
+          gap: 16,
+          fontFamily: HEADLINE_FONT,
+          fontWeight: 800,
+          fontSize: 62,
+          textAlign: "center",
+          lineHeight: 1.1,
+          textShadow: "0 6px 22px rgba(0,0,0,0.55)",
+        }}
+      >
+        <span
+          style={{
+            color: COLORS.accent,
+            opacity: word1,
+            display: "inline-block",
+            transform: `translateY(${interpolate(word1, [0, 1], [26, 0])}px) scale(${interpolate(word1, [0, 1], [0.85, 1])})`,
+          }}
+        >
+          Wasted
+        </span>
+        <span
+          style={{
+            color: COLORS.white,
+            opacity: word2,
+            display: "inline-block",
+            transform: `translateY(${interpolate(word2, [0, 1], [26, 0])}px) scale(${interpolate(word2, [0, 1], [0.85, 1])})`,
+          }}
+        >
+          spend detection
+        </span>
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+// Amber box that highlights the "Wasted spend detection" row inside the
+// Audit/Report screencast, briefly, via interpolate on opacity + scale —
+// not a filter baked into the source video.
+export const AmberRowHighlight: React.FC<{
+  atFrame: number;
+  spanFrames?: number;
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}> = ({ atFrame, spanFrames = 11, top, left, width, height }) => {
+  const frame = useCurrentFrame();
+  const local = frame - atFrame;
+  if (local < -1 || local > spanFrames + 14) return null;
+
+  const opacity = interpolate(
+    local,
+    [0, 3, spanFrames, spanFrames + 10],
+    [0, 1, 1, 0],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+  );
+  const scale = interpolate(local, [0, 3], [0.9, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+
+  return (
+    <AbsoluteFill style={{ pointerEvents: "none" }}>
+      <div
+        style={{
+          position: "absolute",
+          top,
+          left,
+          width,
+          height,
+          opacity,
+          transform: `scale(${scale})`,
+          border: `4px solid ${COLORS.amber}`,
+          borderRadius: 14,
+          boxShadow: `0 0 0 6px rgba(245,166,35,0.22), 0 0 26px rgba(245,166,35,0.55)`,
+        }}
+      />
+    </AbsoluteFill>
+  );
+};
+
+// Bounce-in callout card — "WASTED SPEND: FOUND" — via spring().
+export const BounceCallout: React.FC<{ text: string; atFrame: number; holdFrames?: number }> = ({
+  text,
+  atFrame,
+  holdFrames = 45,
+}) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const local = frame - atFrame;
+  if (local < -1) return null;
+
+  const pop = spring({ frame: local, fps, config: SPRING_BOUNCE });
+  const fade = interpolate(local, [holdFrames - 8, holdFrames], [1, 0], {
+    extrapolateLeft: "clamp",
+    extrapolateRight: "clamp",
+  });
+
+  return (
+    <AbsoluteFill style={{ justifyContent: "center", alignItems: "center", pointerEvents: "none" }}>
+      <div
+        style={{
+          opacity: Math.min(pop, fade),
+          transform: `scale(${interpolate(pop, [0, 1], [0.4, 1])})`,
+          background: "rgba(11,42,46,0.72)",
+          border: `3px solid ${COLORS.amber}`,
+          borderRadius: 20,
+          padding: "26px 40px",
+          boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
+        }}
+      >
+        <div
+          style={{
+            fontFamily: HEADLINE_FONT,
+            fontWeight: 900,
+            fontSize: 50,
+            color: COLORS.white,
+            textAlign: "center",
+            letterSpacing: "0.01em",
+          }}
+        >
+          WASTED SPEND:{" "}
+          <span style={{ color: COLORS.amber }}>FOUND</span>
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+};

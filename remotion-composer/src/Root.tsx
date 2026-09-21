@@ -400,6 +400,62 @@ export const Root: React.FC = () => {
         width={1080}
         height={1920}
       />
+      <Composition
+        id="RyzeV3BOpen"
+        component={V3BOpen}
+        durationInFrames={V3B_OPEN_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+      />
+      <Composition
+        id="RyzeV3BSeriously"
+        component={V3BSeriously}
+        durationInFrames={V3B_SERIOUSLY_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+      />
+      <Composition
+        id="RyzeV3BGlitch"
+        component={V3BGlitch}
+        durationInFrames={V3B_GLITCH_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+      />
+      <Composition
+        id="RyzeV3BAudit"
+        component={V3BAudit}
+        durationInFrames={V3B_AUDIT_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+      />
+      <Composition
+        id="RyzeV3BHighlight"
+        component={V3BHighlight}
+        durationInFrames={V3B_HIGHLIGHT_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+      />
+      <Composition
+        id="RyzeV3BStats"
+        component={V3BStats}
+        durationInFrames={V3B_STATS_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+      />
+      <Composition
+        id="RyzeV3BWastedFound"
+        component={V3BWastedFound}
+        durationInFrames={V3B_WASTED_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+      />
     </>
   );
 };

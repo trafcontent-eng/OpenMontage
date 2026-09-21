@@ -67,12 +67,36 @@ export const ensureRyzeFonts = () => {
   const handle = delayRender("Loading self-hosted Ryze brand fonts");
   Promise.all(
     weights.map(([localFam, , weight]) =>
-      document.fonts.load(`${weight} 40px "${localFam}"`)
+      document.fonts
+        .load(`${weight} 40px "${localFam}"`)
+        .then((res) => {
+          // eslint-disable-next-line no-console
+          console.log("RYZE_FONT_LOAD_OK", localFam, weight, res.length);
+          return res;
+        })
+        .catch((err) => {
+          // eslint-disable-next-line no-console
+          console.log("RYZE_FONT_LOAD_FAIL", localFam, weight, String(err));
+        })
     )
   )
     .then(() => document.fonts.ready)
-    .then(() => continueRender(handle))
-    .catch(() => continueRender(handle));
+    .then(() => {
+      // eslint-disable-next-line no-console
+      console.log(
+        "RYZE_FONTS_READY_SIZE",
+        document.fonts.size,
+        Array.from(document.fonts as unknown as Iterable<{ family: string; weight: string; status: string }>)
+          .map((f) => `${f.family}:${f.weight}:${f.status}`)
+          .join(",")
+      );
+      continueRender(handle);
+    })
+    .catch((err) => {
+      // eslint-disable-next-line no-console
+      console.log("RYZE_FONTS_READY_FAIL", String(err));
+      continueRender(handle);
+    });
 };
 
 ensureRyzeFonts();
@@ -210,6 +234,20 @@ export const KineticCaption: React.FC<{
           return (
             <span
               key={i}
+              ref={(el) => {
+                if (el && typeof window !== "undefined" && !(window as any).__ryzeFontDebugDone) {
+                  (window as any).__ryzeFontDebugDone = true;
+                  const cs = window.getComputedStyle(el);
+                  // eslint-disable-next-line no-console
+                  console.log(
+                    "RYZE_COMPUTED_FONT",
+                    cs.fontFamily,
+                    cs.fontWeight,
+                    "check800:",
+                    document.fonts.check(`800 40px "${HEADLINE_FONT}"`)
+                  );
+                }
+              }}
               style={{
                 display: "inline-block",
                 opacity: s,

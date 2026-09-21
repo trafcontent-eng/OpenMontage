@@ -5,10 +5,14 @@ import { HerClip, KineticCaption, CornerLogo, sec } from "./shared";
 // ---------------------------------------------------------------------------
 // Video 2 ("bookend" hybrid) — middle segment only.
 //
-// Her clip plays whole, untouched, with its original audio. Two subtitle
-// beats are overlaid at her own clip timing:
+// Her clip plays whole, untouched, with its original audio. One subtitle
+// beat is overlaid at her own clip timing:
 //   - "Ryze runs my ads for me" (0.00 - 1.96s, "Ryze" in teal accent)
-//   - "Seriously?" (8.84 - 9.40s)
+// The clip's own footage already carries a burned-in "Seriously?" caption
+// at 8.84-9.40s (matching the requested wording/timing pixel-for-pixel,
+// white bold sans, no italic) — adding a second overlay on top of it would
+// just double the text on screen, so segment 2 relies on the source's own
+// caption there instead of stacking a duplicate.
 // The corner logo plaque is present for the whole segment (this segment IS
 // "after the intro" in the full bookend edit).
 //
@@ -31,10 +35,6 @@ export const Video2Her: React.FC = () => {
           fontSize={52}
           bottom={170}
         />
-      </Sequence>
-
-      <Sequence from={sec(8.84)} durationInFrames={sec(9.4 - 8.84) + 10}>
-        <KineticCaption text="Seriously?" atFrame={0} fontSize={58} bottom={170} />
       </Sequence>
 
       <CornerLogo appearAtFrame={0} />

@@ -22,34 +22,42 @@ import { continueRender, delayRender, staticFile } from "remotion";
 // local woff2 files are actually decoded (avoids a fallback-font flash).
 // ---------------------------------------------------------------------------
 
-export const HEADLINE_FONT = "Poppins";
-export const BODY_FONT = "Inter";
+// Unique family names (not the bare Google Font names) — several unrelated
+// components elsewhere in this bundle also register "Poppins"/"Inter" via
+// @remotion/google-fonts pointing at fonts.gstatic.com, which fails to load
+// in this sandbox (see fontFaceShim.ts) and was observed to make the browser
+// fall back to a default serif for our text too when the family name
+// collided. A distinct local family name sidesteps that entirely.
+const POPPINS_SRC_FAMILY = "Poppins";
+const INTER_SRC_FAMILY = "Inter";
+export const HEADLINE_FONT = "RyzeHeadline";
+export const BODY_FONT = "RyzeBody";
 
 let fontsInjected = false;
 export const ensureRyzeFonts = () => {
   if (fontsInjected || typeof document === "undefined") return;
   fontsInjected = true;
 
-  const weights: Array<[string, string]> = [
-    [HEADLINE_FONT, "600"],
-    [HEADLINE_FONT, "700"],
-    [HEADLINE_FONT, "800"],
-    [HEADLINE_FONT, "900"],
-    [BODY_FONT, "400"],
-    [BODY_FONT, "500"],
-    [BODY_FONT, "600"],
-    [BODY_FONT, "700"],
+  const weights: Array<[string, string, string]> = [
+    [HEADLINE_FONT, POPPINS_SRC_FAMILY, "600"],
+    [HEADLINE_FONT, POPPINS_SRC_FAMILY, "700"],
+    [HEADLINE_FONT, POPPINS_SRC_FAMILY, "800"],
+    [HEADLINE_FONT, POPPINS_SRC_FAMILY, "900"],
+    [BODY_FONT, INTER_SRC_FAMILY, "400"],
+    [BODY_FONT, INTER_SRC_FAMILY, "500"],
+    [BODY_FONT, INTER_SRC_FAMILY, "600"],
+    [BODY_FONT, INTER_SRC_FAMILY, "700"],
   ];
 
   const style = document.createElement("style");
   style.textContent = weights
     .map(
-      ([fam, weight]) => `
+      ([localFam, srcFam, weight]) => `
     @font-face {
-      font-family: "${fam}";
+      font-family: "${localFam}";
       font-style: normal;
       font-weight: ${weight};
-      src: url("${staticFile(`fonts/${fam}-${weight}.woff2`)}") format("woff2");
+      src: url("${staticFile(`fonts/${srcFam}-${weight}.woff2`)}") format("woff2");
       font-display: block;
     }`
     )
@@ -58,8 +66,8 @@ export const ensureRyzeFonts = () => {
 
   const handle = delayRender("Loading self-hosted Ryze brand fonts");
   Promise.all(
-    weights.map(([fam, weight]) =>
-      document.fonts.load(`${weight} 40px "${fam}"`)
+    weights.map(([localFam, , weight]) =>
+      document.fonts.load(`${weight} 40px "${localFam}"`)
     )
   )
     .then(() => document.fonts.ready)

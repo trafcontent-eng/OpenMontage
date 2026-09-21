@@ -70,6 +70,17 @@ const AMBER = "#F5A623"; // brand amber accent — not in shared.tsx's COLORS to
 
 const PIP_SRC = SCREEN_AUDIT;
 
+// Client asked for the top-left logo plaque bigger. Rather than touch
+// shared.tsx's CornerLogo (used by the other variant/compositions too),
+// wrap it and scale the whole thing up from its own top-left corner — the
+// plaque is the only visible content in that AbsoluteFill, so scaling the
+// container reads exactly as "the same plaque, just bigger."
+const CornerLogoV3B: React.FC<{ appearAtFrame?: number }> = ({ appearAtFrame }) => (
+  <div style={{ position: "absolute", inset: 0, transform: "scale(1.4)", transformOrigin: "top left" }}>
+    <CornerLogo appearAtFrame={appearAtFrame ?? -30} />
+  </div>
+);
+
 export const PIPInset: React.FC<{ appearAtFrame?: number; sourceStartSeconds?: number }> = ({
   appearAtFrame = 0,
   sourceStartSeconds = 0,
@@ -97,8 +108,8 @@ export const PIPInset: React.FC<{ appearAtFrame?: number; sourceStartSeconds?: n
           opacity: enter,
           transform: `scale(${interpolate(enter, [0, 1], [0.6, 1])})`,
           transformOrigin: "bottom right",
-          border: "3px solid rgba(255,255,255,0.9)",
-          boxShadow: "0 10px 28px rgba(0,0,0,0.5)",
+          border: `3px solid ${COLORS.accent}`,
+          boxShadow: `0 10px 28px rgba(0,0,0,0.5), 0 0 0 1px rgba(41,126,138,0.5)`,
           backgroundColor: "#0b2a2e",
         }}
       >
@@ -135,11 +146,11 @@ export const V3BOpen: React.FC = () => {
           atFrame={2}
           accentWords={["Ryze"]}
           fontSize={54}
-          bottom={460}
+          bottom={660}
         />
       </Sequence>
       <PIPInset appearAtFrame={6} sourceStartSeconds={0} />
-      <CornerLogo appearAtFrame={sec(0.4)} />
+      <CornerLogoV3B appearAtFrame={sec(0.4)} />
     </AbsoluteFill>
   );
 };
@@ -158,7 +169,7 @@ export const V3BSeriously: React.FC = () => {
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
       <HerClip startFromSeconds={SERIOUSLY_SRC_START} />
       <PIPInset appearAtFrame={-30} sourceStartSeconds={3.0} />
-      <CornerLogo appearAtFrame={-30} />
+      <CornerLogoV3B appearAtFrame={-30} />
     </AbsoluteFill>
   );
 };
@@ -302,7 +313,7 @@ export const V3BGlitch: React.FC = () => {
       )}
 
       <PIPInset appearAtFrame={-30} sourceStartSeconds={4.0} />
-      <CornerLogo appearAtFrame={-30} />
+      <CornerLogoV3B appearAtFrame={-30} />
     </AbsoluteFill>
   );
 };
@@ -434,7 +445,7 @@ export const V3BAudit: React.FC = () => {
         zoomTo={1.07}
       />
       <AuditHeadline atFrame={6} />
-      <CornerLogo appearAtFrame={-30} />
+      <CornerLogoV3B appearAtFrame={-30} />
     </AbsoluteFill>
   );
 };
@@ -505,7 +516,7 @@ export const V3BHighlight: React.FC = () => {
         zoomTo={1.05}
       />
       <WastedRowHighlight atFrame={HIGHLIGHT_POP_AT} />
-      <CornerLogo appearAtFrame={-30} />
+      <CornerLogoV3B appearAtFrame={-30} />
     </AbsoluteFill>
   );
 };
@@ -539,9 +550,16 @@ const StatsCard: React.FC<{ atFrame: number }> = ({ atFrame }) => {
           flexDirection: "column",
           gap: 30,
           padding: "36px 46px",
-          background: "rgba(9, 38, 42, 0.55)",
-          backdropFilter: "blur(4px)",
+          // Raised from 0.55 -> 0.93 opacity + stronger blur: at 0.55 the
+          // screencast's own background numbers ("23.3M", stray "$" labels)
+          // still showed through and visually fought our big ROAS/Revenue
+          // figures. Near-opaque card + thin accent border reads as a clean
+          // stat card instead of a translucent overlay.
+          background: "rgba(6, 27, 30, 0.93)",
+          backdropFilter: "blur(12px)",
+          border: "1px solid rgba(79, 195, 217, 0.28)",
           borderRadius: 26,
+          boxShadow: "0 18px 40px rgba(0,0,0,0.4)",
           opacity: cardIn,
           transform: `translateY(${interpolate(cardIn, [0, 1], [24, 0])}px)`,
           minWidth: 640,
@@ -591,10 +609,11 @@ export const V3BStats: React.FC = () => {
         zoomFrom={1.02}
         zoomTo={1.16}
       />
-      {/* Dim the busy background slightly once the card is up, so the numbers read clean. */}
-      <AbsoluteFill style={{ background: "linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(4,20,22,0.55) 100%)" }} />
+      {/* Dim the busy background once the card is up, so the screencast's
+          own (different, jittering) numbers don't compete with our card. */}
+      <AbsoluteFill style={{ background: "linear-gradient(180deg, rgba(0,0,0,0) 40%, rgba(4,20,22,0.72) 100%)" }} />
       <StatsCard atFrame={10} />
-      <CornerLogo appearAtFrame={-30} />
+      <CornerLogoV3B appearAtFrame={-30} />
     </AbsoluteFill>
   );
 };
@@ -655,6 +674,31 @@ const WastedFoundCard: React.FC<{ atFrame: number }> = ({ atFrame }) => {
   );
 };
 
+// Her source's own burned-in "Seriously?" caption is still on screen this
+// late in the clip (verified frame-by-frame up to ~9.9s, right to the clip's
+// 10.005s end) — it sits right over her dark skirt. Rather than re-cut to a
+// "clean" later moment (there isn't one; the clip runs out), a soft dark
+// patch tuned to the skirt's own near-black tone quietly covers just that
+// footprint. Feathered (radial, not a hard rectangle) so it reads as part of
+// the fabric's shading, not a sticker — fixes the "Seriously?" appearing
+// twice in the same cut.
+const REPEATED_CAPTION_BOX = { cx: 555, cy: 950, rx: 215, ry: 108 };
+
+const CaptionMask: React.FC = () => (
+  <AbsoluteFill style={{ pointerEvents: "none" }}>
+    <div
+      style={{
+        position: "absolute",
+        left: REPEATED_CAPTION_BOX.cx - REPEATED_CAPTION_BOX.rx,
+        top: REPEATED_CAPTION_BOX.cy - REPEATED_CAPTION_BOX.ry,
+        width: REPEATED_CAPTION_BOX.rx * 2,
+        height: REPEATED_CAPTION_BOX.ry * 2,
+        background: `radial-gradient(ellipse at center, rgba(10,10,12,0.97) 45%, rgba(10,10,12,0.85) 65%, rgba(10,10,12,0) 100%)`,
+      }}
+    />
+  </AbsoluteFill>
+);
+
 export const V3BWastedFound: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -677,7 +721,7 @@ export const V3BWastedFound: React.FC = () => {
       {frame <= playFrames ? video : <Freeze frame={playFrames}>{video}</Freeze>}
       <WastedFoundCard atFrame={16} />
       <PIPInset appearAtFrame={4} sourceStartSeconds={0} />
-      <CornerLogo appearAtFrame={-30} />
+      <CornerLogoV3B appearAtFrame={-30} />
     </AbsoluteFill>
   );
 };

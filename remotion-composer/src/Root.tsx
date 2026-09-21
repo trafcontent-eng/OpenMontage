@@ -25,10 +25,10 @@ import { Video2Her, VIDEO2_HER_DURATION } from "./ryze/Video2Her";
 import {
   V3BOpen,
   V3B_OPEN_DURATION,
-  V3BSeriously,
-  V3B_SERIOUSLY_DURATION,
   V3BHang,
   V3B_HANG_DURATION,
+  V3BReaction,
+  V3B_REACTION_DURATION,
   V3BTransition,
   V3B_TRANSITION_DURATION,
   V3BAudit,
@@ -421,17 +421,17 @@ export const Root: React.FC = () => {
         height={1920}
       />
       <Composition
-        id="RyzeV3BSeriously"
-        component={V3BSeriously}
-        durationInFrames={V3B_SERIOUSLY_DURATION}
+        id="RyzeV3BHang"
+        component={V3BHang}
+        durationInFrames={V3B_HANG_DURATION}
         fps={30}
         width={1080}
         height={1920}
       />
       <Composition
-        id="RyzeV3BHang"
-        component={V3BHang}
-        durationInFrames={V3B_HANG_DURATION}
+        id="RyzeV3BReaction"
+        component={V3BReaction}
+        durationInFrames={V3B_REACTION_DURATION}
         fps={30}
         width={1080}
         height={1920}

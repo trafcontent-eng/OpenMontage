@@ -40,33 +40,29 @@ import {
 //
 //   V3BOpen        her clip, original beat: phone call, guy+dog bump her,
 //                  coffee/phone/glasses start flying (0-3s of source)
-//   V3BSeriously   ONE continuous, uncut piece of source (8.5s to the clip's
-//                  own end, ~10.0s): she says "Seriously?" (burned into the
-//                  source) and throws up her hands. "WASTED SPEND: FOUND"
-//                  bounces in near the end. This is the ONLY place this beat
-//                  appears — no later echo, so no duplicated caption.
-//   V3BHang        a stylised cutaway BACK to the suspended-in-the-air
-//                  moment — real 1x playback of her genuine slow-mo footage
-//                  (wide shot of objects hanging, then a macro close-up of
-//                  the coffee dripping; source ~3.5-6.3s). This is footage
-//                  that never shows anything falling (verified frame by
-//                  frame), so reusing it here does not read as "falling
-//                  twice" even though it's not in strict chronological order
-//                  relative to "Seriously?" — it's an intentional highlight
-//                  insert, per the approved scenario.
+//   V3BHang        real 1x playback of her genuine slow-mo footage: wide
+//                  shot of objects hanging in the air, then a macro
+//                  close-up of the coffee dripping (source ~3.5-6.3s) —
+//                  already shot slow, nothing falls in this stretch
+//   V3BReaction    ONE continuous, uncut piece of source (~8.3-10.0s): the
+//                  objects land, she looks down, says "Seriously?" (burned
+//                  into the source) and throws up her hands — in that real
+//                  order. "WASTED SPEND: FOUND" bounces in near the end.
+//                  Used exactly once, so the caption never duplicates.
 //   V3BTransition  RGB-split shock + coffee-wipe into the Account Audit
-//                  screen, picking up from the suspended-in-air freeze
+//                  screen, picking up from the exact last frame V3BReaction
+//                  ended on
 //   V3BAudit       screencast 1 full-bleed, "Wasted spend..." pop
 //   V3BHighlight   screencast 2 full-bleed, amber outline pop
 //   V3BStats       screencast 2 tail, animated ROAS/Revenue counters
 //
-// (This order — Open -> Seriously? -> suspended cutaway -> transition — went
-// through a couple of wrong turns mid-build (a "fix" that flipped it to
-// hang-before-reaction, then a merge that made the reaction segment replay
-// after the cutaway) before landing back on the originally approved order.
-// The one invariant that actually mattered throughout: the ~8.5-10.0s
-// "Seriously?" stretch of source is used exactly once, in exactly one
-// composition, so the caption can never appear twice.)
+// CONFIRMED CHRONOLOGY (client checked the source video's real timestamps,
+// not just the text draft of the scenario): bump -> hang/drift in the air
+// (already slow-motion footage) -> land -> "Seriously?". This order was
+// flipped back and forth a few times mid-build before landing here — the
+// one thing that held throughout every version: the ~8.3-10.0s "Seriously?"
+// stretch of source is used exactly once, in exactly one composition, so the
+// caption never appears twice regardless of where the beat sits.
 //
 // The final outro card is a separate HyperFrames scene
 // (projects/ryze-hyperframes-3/) — deliberately NOT Remotion, per brief.
@@ -74,13 +70,14 @@ import {
 
 const SCREEN_AUDIT = "media/screencast_audit_v3b.mp4"; // trimmed 0-4.2s of file3
 const SCREEN_REPORT = "media/screencast_report_v3b.mp4"; // trimmed 8.0-15.867s of file2 (offset 8.0s)
-// Freeze base for the coffee-wipe transition — grabbed at her.mp4 t=8.8s:
-// coffee cup mid-air, lid just separated, splash starting. (A brief
-// intermediate pass tried grabbing this at t=9.95s/the clip's end instead,
+// Freeze base for the coffee-wipe transition — grabbed at her.mp4 t=9.95s,
+// the very end of the clip, right where V3BReaction's real playback ends
+// (puddle fully landed and spread). (A brief intermediate pass tried the
+// original t=8.8s mid-air grab instead, for a structure where the hang
+// cutaway came right before this transition — reverted along with that
+// ordering change.)
 // for a structure where the hang/fall came after "Seriously?" — that order
-// was reverted; back to the original, correct order: Open -> Seriously? ->
-// suspended-in-air cutaway (V3BHang) -> this transition.)
-const HER_FREEZE = "media/her_glitch_freeze_v3b.png";
+const HER_FREEZE = "media/her_freeze_end_v3b.png";
 const AMBER = "#F5A623"; // brand amber accent — not in shared.tsx's COLORS token set
 
 // ---------------------------------------------------------------------------
@@ -203,17 +200,73 @@ export const V3BOpen: React.FC = () => {
 };
 
 // ---------------------------------------------------------------------------
-// V3BSeriously — THE ONLY appearance of this beat in the whole video (an
-// earlier pass also echoed it in a separate later "aftermath" composition,
-// which duplicated the "Seriously?" caption — removed). One continuous,
-// uncut piece of her source from 8.5s to the clip's own end (10.005s): she
-// looks down, says "Seriously?" (burned into the source, no overlay added
-// on top of it), throws up her hands. "WASTED SPEND: FOUND" bounces in near
-// the end of this same clip.
+// V3BHang — FINAL CONFIRMED ORDER, matching the real footage's own timeline
+// (the client confirmed the source video's actual timestamps over the
+// earlier text draft of the scenario, which didn't match frame-for-frame).
+// Her source, in real chronological order: bump begins (V3BOpen, 0-3s) ->
+// things hang/drift in the air, already shot in slow motion (~3.5-8.5s) ->
+// they land (~8.5s) -> she reacts, "Seriously?" (~8.84-9.4s). This
+// composition is that middle "hang" stretch — two mini-scenes, native 1x
+// speed, real decoded frames, back to back, nothing falling in either:
+//   ~3.5-5.27s  wide shot, phone/glasses/cup hanging in the air
+//   ~5.5-6.27s  macro close-up, coffee slowly dripping off the lid
+// Native ambient sound plays (not muted); music stays audible/accented under
+// it in the final ffmpeg mix (handled there, not here). V3BReaction below is
+// the landing + "Seriously?" that follows it — in that order, once.
 // ---------------------------------------------------------------------------
 
-const SERIOUSLY_SRC_START = 8.5; // her.mp4 source seconds
-export const V3B_SERIOUSLY_DURATION = 45; // ~1.5s, runs to the clip's own end (10.005s minus tiny margin)
+const WIDE_HANG_SRC_START = 3.5; // her.mp4 source seconds
+const WIDE_HANG_FRAMES = 53; // ~1.77s (to ~5.27s)
+const COFFEE_DRIP_SRC_START = 5.5;
+const COFFEE_DRIP_FRAMES = 23; // ~0.77s (to ~6.27s)
+export const V3B_HANG_DURATION = WIDE_HANG_FRAMES + COFFEE_DRIP_FRAMES; // ~2.53s, both at native 1x
+
+// A sub-clip that plays at real 1x speed starting partway through this
+// composition's own timeline. `startFrom` is a CONSTANT (Remotion adds the
+// composition's current frame automatically — see the ZoomVideo note below)
+// so to have it read `srcStartSeconds` at the moment THIS sub-clip's local
+// time is 0 (i.e. composition frame == `mountedAtFrame`), the constant has
+// to be offset backward by `mountedAtFrame`.
+const HangSubclip: React.FC<{ srcStartSeconds: number; mountedAtFrame: number; fps: number }> = ({
+  srcStartSeconds,
+  mountedAtFrame,
+  fps,
+}) => (
+  <OffthreadVideo
+    src={staticFile("media/her.mp4")}
+    startFrom={Math.round(srcStartSeconds * fps) - mountedAtFrame}
+    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+  />
+);
+
+export const V3BHang: React.FC = () => {
+  const frame = useCurrentFrame();
+  const inWideHang = frame < WIDE_HANG_FRAMES;
+
+  return (
+    <AbsoluteFill style={{ backgroundColor: "#000" }}>
+      {inWideHang ? (
+        <HangSubclip srcStartSeconds={WIDE_HANG_SRC_START} mountedAtFrame={0} fps={30} />
+      ) : (
+        <HangSubclip srcStartSeconds={COFFEE_DRIP_SRC_START} mountedAtFrame={WIDE_HANG_FRAMES} fps={30} />
+      )}
+      <PIPInset appearAtFrame={-30} sourceStartSeconds={3.0} />
+      <CornerLogoV3B appearAtFrame={-30} />
+    </AbsoluteFill>
+  );
+};
+
+// ---------------------------------------------------------------------------
+// V3BReaction — the landing + reaction, ONE continuous uncut piece of her
+// source (8.3s to the clip's own end, ~10.0s): things actually hit the
+// ground, she looks down, says "Seriously?" (burned into the source, no
+// overlay added on top of it) and throws up her hands — in that real order,
+// used exactly once in the whole video, so the caption never duplicates.
+// "WASTED SPEND: FOUND" bounces in near the end of this same clip.
+// ---------------------------------------------------------------------------
+
+const REACTION_SRC_START = 8.3; // her.mp4 source seconds
+export const V3B_REACTION_DURATION = 52; // ~1.73s, ends exactly at her.mp4's 10.0s (its last usable frame)
 
 const WastedFoundCard: React.FC<{ atFrame: number }> = ({ atFrame }) => {
   const frame = useCurrentFrame();
@@ -260,74 +313,17 @@ const WastedFoundCard: React.FC<{ atFrame: number }> = ({ atFrame }) => {
   );
 };
 
-export const V3BSeriously: React.FC = () => {
+export const V3BReaction: React.FC = () => {
   const { fps } = useVideoConfig();
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
       <OffthreadVideo
         src={staticFile("media/her.mp4")}
-        startFrom={Math.round(SERIOUSLY_SRC_START * fps)}
+        startFrom={Math.round(REACTION_SRC_START * fps)}
         style={{ width: "100%", height: "100%", objectFit: "cover" }}
       />
-      <WastedFoundCard atFrame={28} />
-      <PIPInset appearAtFrame={-30} sourceStartSeconds={3.0} />
-      <CornerLogoV3B appearAtFrame={-30} />
-    </AbsoluteFill>
-  );
-};
-
-// ---------------------------------------------------------------------------
-// V3BHang — CORRECTED ORDER (this took a few passes to get right — see the
-// chronology note at the top of the file). This comes AFTER "Seriously?",
-// as a stylised cutaway/highlight back to the suspended-in-air moment before
-// the fall, not a real-time continuation. Its content genuinely never shows
-// anything falling — her source ~3.5-6.3s is all still-hanging/suspended
-// footage (already shot in slow motion; verified frame by frame) — so
-// reusing it here does not read as "things fall twice." Two mini-scenes,
-// native 1x speed, real decoded frames, back to back:
-//   ~3.5-5.27s  wide shot, phone/glasses/cup hanging in the air
-//   ~5.5-6.27s  macro close-up, coffee slowly dripping off the lid
-// Native ambient sound plays (not muted); music is audible/accented under it
-// in the final ffmpeg mix (handled there, not here).
-// ---------------------------------------------------------------------------
-
-const WIDE_HANG_SRC_START = 3.5; // her.mp4 source seconds
-const WIDE_HANG_FRAMES = 53; // ~1.77s (to ~5.27s)
-const COFFEE_DRIP_SRC_START = 5.5;
-const COFFEE_DRIP_FRAMES = 23; // ~0.77s (to ~6.27s)
-export const V3B_HANG_DURATION = WIDE_HANG_FRAMES + COFFEE_DRIP_FRAMES; // ~2.53s, both at native 1x
-
-// A sub-clip that plays at real 1x speed starting partway through this
-// composition's own timeline. `startFrom` is a CONSTANT (Remotion adds the
-// composition's current frame automatically — see the ZoomVideo note below)
-// so to have it read `srcStartSeconds` at the moment THIS sub-clip's local
-// time is 0 (i.e. composition frame == `mountedAtFrame`), the constant has
-// to be offset backward by `mountedAtFrame`.
-const HangSubclip: React.FC<{ srcStartSeconds: number; mountedAtFrame: number; fps: number }> = ({
-  srcStartSeconds,
-  mountedAtFrame,
-  fps,
-}) => (
-  <OffthreadVideo
-    src={staticFile("media/her.mp4")}
-    startFrom={Math.round(srcStartSeconds * fps) - mountedAtFrame}
-    style={{ width: "100%", height: "100%", objectFit: "cover" }}
-  />
-);
-
-export const V3BHang: React.FC = () => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const inWideHang = frame < WIDE_HANG_FRAMES;
-
-  return (
-    <AbsoluteFill style={{ backgroundColor: "#000" }}>
-      {inWideHang ? (
-        <HangSubclip srcStartSeconds={WIDE_HANG_SRC_START} mountedAtFrame={0} fps={fps} />
-      ) : (
-        <HangSubclip srcStartSeconds={COFFEE_DRIP_SRC_START} mountedAtFrame={WIDE_HANG_FRAMES} fps={fps} />
-      )}
-      <PIPInset appearAtFrame={-30} sourceStartSeconds={3.0 + V3B_SERIOUSLY_DURATION / fps} />
+      <WastedFoundCard atFrame={32} />
+      <PIPInset appearAtFrame={-30} sourceStartSeconds={3.0 + V3B_HANG_DURATION / fps} />
       <CornerLogoV3B appearAtFrame={-30} />
     </AbsoluteFill>
   );
@@ -338,20 +334,20 @@ export const V3BHang: React.FC = () => {
 // coordinator: "already works well, don't touch"): a short RGB-split
 // "impact" shock, then the spill's footprint on a freeze frame grows into a
 // wipe mask that pours the Account Audit screen in underneath. Freeze base
-// is the original grab at her.mp4 t=8.8s (mid-air, lid separated, splash
-// just starting) — matches the "suspended" register of V3BHang right before
-// it, so the cut into this transition doesn't jump forward in time either.
+// picks up from the literal last frame V3BReaction ended on (her.mp4 at
+// ~10.0s, puddle fully landed and spread), so the cut into this transition
+// has no jump backward or forward in time.
 // ---------------------------------------------------------------------------
 
 export const V3B_TRANSITION_DURATION = sec(1.0);
 const SHOCK_FRAMES = 6; // ~0.2s RGB-split impact
 const WIPE_START = 6;
 const WIPE_END = 27; // ~0.7s pour/reveal
-// Coffee splash centre on the freeze frame, measured on the 720x1280 source
-// (splash mass under the falling lid/cup) and scaled to the 1080x1920 canvas
-// (uniform 1.5x, same aspect ratio as the source — no crop).
-const SPILL_CX = 645;
-const SPILL_CY = 1600;
+// Coffee splash centre on the freeze frame — puddle fully landed and spread
+// by this point — measured on the 720x1280 source and scaled to the
+// 1080x1920 canvas (uniform 1.5x, same aspect ratio as the source — no crop).
+const SPILL_CX = 520;
+const SPILL_CY = 1620;
 
 const GlitchChannel: React.FC<{ filterId: string; shift: number }> = ({ filterId, shift }) => (
   <div

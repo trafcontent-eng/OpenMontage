@@ -72,7 +72,21 @@ const AMBER = "#F5A623"; // brand amber accent — not in shared.tsx's COLORS to
 // full-bleed.
 // ---------------------------------------------------------------------------
 
-const PIP_SRC = SCREEN_AUDIT;
+// FIX: the PIP previously pulled from SCREEN_AUDIT (screencast_audit_v3b.mp4,
+// i.e. file 8a87c3ce-3.mp4). That file's own footage has a two-column layout
+// once it scrolls past its first ~1s — the right column is a Slack-style
+// "#ryze-ai" thread panel ("Budget Allocation — $82.4K/mo" with a donut
+// chart), verified by pulling the frame straight from the original upload,
+// not from any separate Slack-demo file (nothing in this project ever
+// referenced 6687f874-slack-demo.mp4 — it was this split-column content in
+// the approved audit screencast itself). Since the PIP has to stay clean for
+// several continuous seconds, it's switched to a fresh trim of file2
+// (4a558a58-2.mp4)'s own opening 0-7s, which is a single-column site-builder
+// demo with no thread/chat panel anywhere in that range (checked frame by
+// frame). The full-bleed Audit segment is untouched — that split-column
+// content is fine full-screen where it's clearly the account/audit page;
+// it just isn't right for a tiny decorative "meanwhile" inset.
+const PIP_SRC = "media/pip_clean_v3b.mp4";
 
 // Client asked for the top-left logo plaque bigger. Rather than touch
 // shared.tsx's CornerLogo (used by the other variant/compositions too),
@@ -742,35 +756,12 @@ const WastedFoundCard: React.FC<{ atFrame: number }> = ({ atFrame }) => {
   );
 };
 
-// Her source's own burned-in "Seriously?" caption is still on screen this
-// late in the clip (verified frame-by-frame up to ~9.9s, right to the clip's
-// 10.005s end) — it sits right over her dark skirt. Rather than re-cut to a
-// "clean" later moment (there isn't one; the clip runs out), a dark patch
-// tuned to the skirt's own near-black tone quietly covers just that
-// footprint. First pass used a radial-gradient fill that was translucent
-// enough at its own center to still let the bold white text ghost through —
-// this one is a flat, fully OPAQUE core (solid color, not a gradient over
-// the text) with the feathering pushed entirely to a soft outer box-shadow,
-// so nothing inside the patch is see-through and only the outer few px
-// blend into the fabric.
-const REPEATED_CAPTION_BOX = { cx: 555, cy: 950, rx: 165, ry: 62 };
-
-const CaptionMask: React.FC = () => (
-  <AbsoluteFill style={{ pointerEvents: "none" }}>
-    <div
-      style={{
-        position: "absolute",
-        left: REPEATED_CAPTION_BOX.cx - REPEATED_CAPTION_BOX.rx,
-        top: REPEATED_CAPTION_BOX.cy - REPEATED_CAPTION_BOX.ry,
-        width: REPEATED_CAPTION_BOX.rx * 2,
-        height: REPEATED_CAPTION_BOX.ry * 2,
-        borderRadius: 34,
-        backgroundColor: "rgba(9, 9, 11, 1)",
-        boxShadow: "0 0 26px 12px rgba(9, 9, 11, 0.9)",
-      }}
-    />
-  </AbsoluteFill>
-);
+// NOTE: an earlier pass masked her source's own "Seriously?" caption here
+// (still visible this late in the clip) with a dark patch over her skirt.
+// The client reviewed it and asked for it gone entirely — she really does
+// say "Seriously?" again at this exact point in the source take, so it's
+// not a stray leftover caption to hide, just the real line playing again.
+// This beat is her footage exactly as shot, no overlay on top of it.
 
 export const V3BWastedFound: React.FC = () => {
   const frame = useCurrentFrame();
@@ -782,8 +773,8 @@ export const V3BWastedFound: React.FC = () => {
     <OffthreadVideo
       src={staticFile("media/her.mp4")}
       startFrom={baseStart}
-      // Audio only plays through the real (unfrozen) portion — she has no
-      // more dialogue here, avoids looping a stray audio frame on freeze.
+      // Audio only plays through the real (unfrozen) portion — once <Freeze>
+      // holds the last frame, muting avoids looping that one audio frame.
       volume={frame <= playFrames ? 1 : 0}
       style={{ width: "100%", height: "100%", objectFit: "cover" }}
     />
@@ -792,7 +783,6 @@ export const V3BWastedFound: React.FC = () => {
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
       {frame <= playFrames ? video : <Freeze frame={playFrames}>{video}</Freeze>}
-      <CaptionMask />
       <WastedFoundCard atFrame={16} />
       <PIPInset appearAtFrame={4} sourceStartSeconds={0} />
       <CornerLogoV3B appearAtFrame={-30} />

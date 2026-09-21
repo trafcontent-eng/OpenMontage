@@ -240,6 +240,9 @@ const GlitchChannel: React.FC<{ filterId: string; shift: number }> = ({ filterId
 // so to have it read `srcStartSeconds` at the moment THIS sub-clip's local
 // time is 0 (i.e. composition frame == `mountedAtFrame`), the constant has
 // to be offset backward by `mountedAtFrame`.
+// NOT muted — per the coordinator, her clip's own native ambient sound
+// should carry this beat, with the music ducked almost to nothing under it
+// (handled in the final ffmpeg audio mix, not here).
 const SlowmoSubclip: React.FC<{ srcStartSeconds: number; mountedAtFrame: number; fps: number }> = ({
   srcStartSeconds,
   mountedAtFrame,
@@ -248,7 +251,6 @@ const SlowmoSubclip: React.FC<{ srcStartSeconds: number; mountedAtFrame: number;
   <OffthreadVideo
     src={staticFile("media/her.mp4")}
     startFrom={Math.round(srcStartSeconds * fps) - mountedAtFrame}
-    muted
     style={{ width: "100%", height: "100%", objectFit: "cover" }}
   />
 );
@@ -434,11 +436,9 @@ const ZoomVideo: React.FC<{
 // "RYZE AUDIT" small + "Wasted spend detection" big (Wasted = accent), pop-in.
 // ---------------------------------------------------------------------------
 
-// Trimmed 3.0 -> 2.7s (client's suggestion: shave ~0.3s off two of the three
-// screen blocks to pay for the new slow-mo phase above, rather than cutting
-// any one block's content outright). Only the tail hold shortens — the pop-in
-// is unaffected since it starts at frame 6.
-export const V3B_AUDIT_DURATION = sec(2.7);
+// Client later said not to compress runtime for this — kept at its original
+// 3.0s (an earlier pass briefly trimmed this to 2.7s; reverted).
+export const V3B_AUDIT_DURATION = sec(3.0);
 
 const AuditHeadline: React.FC<{ atFrame: number }> = ({ atFrame }) => {
   const frame = useCurrentFrame();
@@ -523,10 +523,8 @@ export const V3BAudit: React.FC = () => {
 // 0.3-0.4s, positioned against the verified on-screen crop of that row.
 // ---------------------------------------------------------------------------
 
-// Trimmed 3.0 -> 2.7s, same reasoning as V3B_AUDIT_DURATION above. The amber
-// highlight pop (frame 30 local) and its fade (done well before frame 81)
-// are both unaffected.
-export const V3B_HIGHLIGHT_DURATION = sec(2.7);
+// Reverted to its original 3.0s, same reasoning as V3B_AUDIT_DURATION above.
+export const V3B_HIGHLIGHT_DURATION = sec(3.0);
 // screencast_report_v3b.mp4 plays at real 1x from this trim-in point (fixed
 // after the ZoomVideo speed bug above), so local frame f shows trimmed
 // source frame round(1.7*30)+f = 51+f. Verified frame-by-frame against the

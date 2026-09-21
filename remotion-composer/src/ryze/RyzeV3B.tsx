@@ -719,6 +719,7 @@ export const V3BWastedFound: React.FC = () => {
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
       {frame <= playFrames ? video : <Freeze frame={playFrames}>{video}</Freeze>}
+      <CaptionMask />
       <WastedFoundCard atFrame={16} />
       <PIPInset appearAtFrame={4} sourceStartSeconds={0} />
       <CornerLogoV3B appearAtFrame={-30} />

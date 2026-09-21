@@ -64,9 +64,10 @@ export const RyzeSeg3: React.FC = () => {
           domain), fading out at 9.5s her-time -> local frame ~30. */}
       <PipOverlay herSourceTimeAtFrame0={SEG3_START} />
 
-      {/* Corner logo has been on screen since 0.5s of the whole video —
-          this whole segment starts well past that, so show it from frame 0. */}
-      <CornerLogo appearAtFrame={0} />
+      {/* Corner logo has been on screen since 0.5s of the whole video — this
+          segment picks up well after that, so it must already be fully
+          settled at frame 0, not popping in again after the hard cut. */}
+      <CornerLogo appearAtFrame={-30} />
     </AbsoluteFill>
   );
 };

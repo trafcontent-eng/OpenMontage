@@ -19,6 +19,7 @@ import { LyricOverlay, LyricOverlayProps } from "./LyricOverlay";
 import { VariantA, VARIANT_A_DURATION } from "./ryze/VariantA";
 import { VariantB, VARIANT_B_DURATION } from "./ryze/VariantB";
 import { VariantC, VARIANT_C_DURATION } from "./ryze/VariantC";
+import { Video2Her, VIDEO2_HER_DURATION } from "./ryze/Video2Her";
 
 // ---------------------------------------------------------------------------
 // Theme System — prevents every video from looking like dark fintech
@@ -353,6 +354,14 @@ export const Root: React.FC = () => {
         id="RyzeVariantC"
         component={VariantC}
         durationInFrames={VARIANT_C_DURATION}
+        fps={30}
+        width={1080}
+        height={1920}
+      />
+      <Composition
+        id="RyzeVideo2Her"
+        component={Video2Her}
+        durationInFrames={VIDEO2_HER_DURATION}
         fps={30}
         width={1080}
         height={1920}
